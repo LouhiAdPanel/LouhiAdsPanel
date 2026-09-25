@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raportointi · Louhi Ads</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-mark">L</span>
+      <span class="brand-name">Louhi Ads</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-link">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="1.5" width="6.5" height="6.5" rx="1"/><rect x="10" y="1.5" width="6.5" height="6.5" rx="1"/><rect x="1.5" y="10" width="6.5" height="6.5" rx="1"/><rect x="10" y="10" width="6.5" height="6.5" rx="1"/></svg>
+        Etusivu
+      </a>
+      <a href="advertisers.html" class="nav-link">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="2" width="11" height="14" rx="1"/><line x1="6.5" y1="5.5" x2="6.5" y2="5.5"/><line x1="9" y1="5.5" x2="9" y2="5.5"/><line x1="11.5" y1="5.5" x2="11.5" y2="5.5"/><line x1="6.5" y1="8.5" x2="6.5" y2="8.5"/><line x1="9" y1="8.5" x2="9" y2="8.5"/><line x1="11.5" y1="8.5" x2="11.5" y2="8.5"/><line x1="7.5" y1="16" x2="7.5" y2="12.5"/><line x1="10.5" y1="16" x2="10.5" y2="12.5"/></svg>
+        Mainostajat
+      </a>
+      <a href="campaigns.html" class="nav-link">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M2 7.5V11h2.4L11 14.5V4L4.4 7.5H2Z"/><path d="M14 6.5c.8.6 1.3 1.5 1.3 2.5s-.5 1.9-1.3 2.5"/></svg>
+        Kampanjat
+      </a>
+      <a href="creatives.html" class="nav-link">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="14" height="12" rx="1.2"/><circle cx="6.3" cy="7" r="1.3"/><path d="M2.5 13.5 7 9.5l3 2.8 2-1.8 3.5 3"/></svg>
+        Mainokset
+      </a>
+      <a href="placements.html" class="nav-link">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2.5" width="14" height="13" rx="1"/><line x1="2" y1="6.5" x2="16" y2="6.5"/></svg>
+        Mainospaikat
+      </a>
+      <a href="reporting.html" class="nav-link active">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="2" y1="16" x2="16" y2="16"/><rect x="3.5" y="10" width="3" height="6"/><rect x="7.7" y="6" width="3" height="10"/><rect x="11.9" y="3" width="3" height="13"/></svg>
+        Raportointi
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <span class="avatar">JK</span>
+        <div>
+          <span class="user-name">Johnny Kuoppala</span>
+          <span class="user-role">Admin</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <div class="topbar">
+      <div>
+        <h1>Raportointi</h1>
+        <p>Näytöt, klikkaukset ja CTR kampanjoittain.</p>
+      </div>
+      <button class="btn btn-secondary">⭳ Vie CSV</button>
+    </div>
+
+    <div class="section-card">
+      <div class="section-toolbar">
+        <h2>Ajanjakso: 1.9.–22.9.2026</h2>
+        <div class="filters">
+          <select class="select">
+            <option>Kaikki kampanjat</option>
+            <option>SaaShop Pipedrive Q4</option>
+            <option>Pilvi Cloud -nosto</option>
+          </select>
+          <select class="select">
+            <option>Viimeiset 30 päivää</option>
+            <option>Tämä kuukausi</option>
+            <option>Mukautettu</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="report-summary">
+        <div class="metric">
+          <span class="metric-value">20 900</span>
+          <span class="metric-label">Näytöt yhteensä</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value">279</span>
+          <span class="metric-label">Klikkaukset yhteensä</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value">1,33 %</span>
+          <span class="metric-label">Keskimääräinen CTR</span>
+        </div>
+      </div>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Kampanja</th>
+            <th>Mainospaikka</th>
+            <th>Näytöt</th>
+            <th>Klikit</th>
+            <th>CTR</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>SaaShop Pipedrive Q4</td>
+            <td class="cell-muted">louhi_console_main</td>
+            <td class="cell-muted">12 400</td>
+            <td class="cell-muted">186</td>
+            <td class="cell-muted">1,50 %</td>
+          </tr>
+          <tr>
+            <td>Pilvi Cloud -nosto</td>
+            <td class="cell-muted">louhi_console_main</td>
+            <td class="cell-muted">8 500</td>
+            <td class="cell-muted">93</td>
+            <td class="cell-muted">1,09 %</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+</body>
+</html>
