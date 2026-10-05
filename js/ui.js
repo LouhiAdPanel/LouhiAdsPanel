@@ -110,6 +110,7 @@ const UI = (() => {
       f.min !== undefined ? `min="${f.min}"` : '',
       f.max !== undefined ? `max="${f.max}"` : '',
       f.maxlength ? `maxlength="${f.maxlength}"` : '',
+      f.readonly ? 'readonly tabindex="-1"' : '',
       f.type === 'password' ? `autocomplete="${f.autocomplete || 'new-password'}"` : '',
     ].join(' ');
     const help = f.help ? `<small class="field-help">${esc(f.help)}</small>` : '';

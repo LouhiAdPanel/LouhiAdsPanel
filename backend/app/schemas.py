@@ -51,12 +51,13 @@ class CampaignStatusIn(BaseModel):
 
 
 class CreativeIn(BaseModel):
-    campaign_id: int
+    campaign_id: int | None = Field(default=None, description="Valinnainen – mainos voi olla ilman kampanjaa")
     name: str = Field(min_length=1, max_length=150)
     image_url: str = Field(min_length=1, pattern=r"^(https?://|/media/)",
                            description="Ladattu kuva (/media/...) tai ulkoinen URL")
     target_url: str = Field(pattern=r"^https?://")
     alt_text: str = Field(default="", max_length=200)
+    # Ladatun kuvan (/media/...) mitat luetaan aina tiedostosta palvelimella.
     width: int | None = Field(default=None, gt=0)
     height: int | None = Field(default=None, gt=0)
     weight: int = Field(default=1, ge=0, le=100)

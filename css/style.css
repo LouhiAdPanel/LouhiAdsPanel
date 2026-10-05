@@ -834,3 +834,18 @@ body:not(.role-admin) .admin-only { display: none !important; }
 }
 .code-preview.is-taken { color: var(--amber-600); }
 .code-preview.is-taken::after { content: '  (varattu – saa numeron)'; font-family: var(--font-body); font-size: 12px; }
+
+/* ---------- 10. Mainoksen koko vs. mainospaikan maksimikoko ---------- */
+.field .input[readonly] { background: var(--stone-50); color: var(--ink-600); cursor: default; }
+.fit-panel .fit-body, .fit-panel { font-size: 13px; }
+.fit-summary { margin-bottom: 6px; color: var(--malachite-600); font-weight: 600; }
+.fit-summary.is-error { color: var(--brick-600); }
+.fit-list { list-style: none; display: flex; flex-direction: column; gap: 3px; }
+.fit-list li { display: flex; gap: 8px; align-items: baseline; }
+.fit-list li::before { width: 14px; font-weight: 700; }
+.fit-list li.fit-yes::before { content: '✓'; color: var(--malachite-600); }
+.fit-list li.fit-no { color: var(--ink-600); }
+.fit-list li.fit-no::before { content: '✕'; color: var(--brick-600); }
+.fit-list li span { color: var(--ink-600); font-size: 12px; }
+.no-campaign { color: var(--amber-600); font-weight: 500; }
+.cell-warn { color: var(--amber-600) !important; font-weight: 500; }

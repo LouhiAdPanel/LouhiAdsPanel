@@ -32,6 +32,9 @@ WHERE p.code = %s
   AND c.end_time   >  now()
   AND cr.status = 'active'
   AND cr.weight > 0
+  -- Mainospaikan koko on maksimikoko: liian suurta mainosta ei näytetä
+  AND (cr.width  IS NULL OR cr.width  <= p.width)
+  AND (cr.height IS NULL OR cr.height <= p.height)
 """
 # Kohdennussäännöt (targeting_rules) lisätään tähän myöhemmin (luku 9).
 

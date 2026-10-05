@@ -13,8 +13,9 @@
       options: ENVIRONMENTS.map((e) => ({ value: e, label: e })) },
     { name: 'status', label: 'Tila', type: 'select', required: true,
       options: [{ value: 'active', label: 'Aktiivinen' }, { value: 'inactive', label: 'Ei aktiivinen' }] },
-    { name: 'width', label: 'Mainoksen leveys (px)', type: 'number', required: true, min: 1, max: 5000 },
-    { name: 'height', label: 'Mainoksen korkeus (px)', type: 'number', required: true, min: 1, max: 5000 },
+    { name: 'width', label: 'Mainoksen maksimileveys (px)', type: 'number', required: true, min: 1, max: 5000 },
+    { name: 'height', label: 'Mainoksen maksimikorkeus (px)', type: 'number', required: true, min: 1, max: 5000,
+      help: 'Tähän paikkaan näytetään vain mainoksia, jotka ovat enintään tämän kokoisia.' },
     { name: 'notes', label: 'Tekniset huomiot', type: 'textarea' },
   ];
 

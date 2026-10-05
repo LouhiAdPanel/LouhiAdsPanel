@@ -80,3 +80,17 @@ def delete_local_image(image_url: str | None) -> None:
         (MEDIA_DIR / name).unlink()
     except FileNotFoundError:
         pass
+
+
+def local_image_size(image_url: str | None) -> tuple[int, int] | None:
+    """Palvelimelle ladatun kuvan todelliset mitat (None, jos ulkoinen URL tai tiedostoa ei ole)."""
+    if not image_url or not image_url.startswith(MEDIA_URL_PREFIX):
+        return None
+    name = image_url[len(MEDIA_URL_PREFIX):]
+    if "/" in name or "\\" in name or name.startswith("."):
+        return None
+    try:
+        _, w, h = inspect_image((MEDIA_DIR / name).read_bytes())
+        return w, h
+    except (FileNotFoundError, InvalidImage):
+        return None

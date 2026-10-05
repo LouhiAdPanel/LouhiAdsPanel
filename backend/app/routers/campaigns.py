@@ -15,7 +15,14 @@ SELECT c.*,
          json_agg(json_build_object('id', p.id, 'name', p.name, 'code', p.code)
                   ORDER BY p.name) FILTER (WHERE p.id IS NOT NULL),
          '[]') AS placements,
-       (SELECT count(*) FROM creatives cr WHERE cr.campaign_id = c.id) AS creative_count
+       (SELECT count(*) FROM creatives cr WHERE cr.campaign_id = c.id) AS creative_count,
+       -- Mainokset, jotka eivät mahdu yhteenkään kampanjan mainospaikkaan (eivät näy missään)
+       (SELECT count(*) FROM creatives cr
+         WHERE cr.campaign_id = c.id AND cr.width IS NOT NULL AND cr.height IS NOT NULL
+           AND EXISTS (SELECT 1 FROM campaign_placements x WHERE x.campaign_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM campaign_placements x JOIN placements p2 ON p2.id = x.placement_id
+                            WHERE x.campaign_id = c.id AND cr.width <= p2.width AND cr.height <= p2.height)
+       ) AS unfit_creative_count
 FROM v_campaign_status c
 JOIN advertisers a                 ON a.id = c.advertiser_id
 LEFT JOIN campaign_placements cp   ON cp.campaign_id = c.id
@@ -96,7 +103,7 @@ def set_campaign_status(campaign_id: int, body: CampaignStatusIn, conn=Depends(g
 
 @router.delete("/{campaign_id}", status_code=204)
 def delete_campaign(campaign_id: int, conn=Depends(get_conn)):
-    # Poistaa myös kampanjan mainokset ja tilastot (CASCADE).
-    # Hallintapaneelissa kannattaa ensisijaisesti arkistoida.
+    # Kampanjan mainokset jäävät talteen ilman kampanjaa (ON DELETE SET NULL).
+    # Kampanjan tilastot poistuvat – paneelissa kannattaa ensisijaisesti arkistoida.
     if not delete_row(conn, "campaigns", campaign_id):
         raise HTTPException(404, "Kampanjaa ei löytynyt.")

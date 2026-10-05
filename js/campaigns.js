@@ -75,6 +75,7 @@
         <td>
           ${UI.esc(c.name)}
           <a class="cell-sub" href="creatives.html?campaign_id=${c.id}">${c.creative_count} mainosta →</a>
+          ${c.unfit_creative_count ? `<span class="cell-sub cell-warn" title="Mainos on suurempi kuin yksikään kampanjan mainospaikka, joten sitä ei näytetä.">⚠ ${c.unfit_creative_count} ei mahdu mainospaikkoihin</span>` : ''}
         </td>
         <td class="cell-muted">${UI.esc(c.advertiser_name)}</td>
         <td class="cell-muted">${c.placements.map((p) => UI.esc(p.name)).join(', ') || '–'}</td>

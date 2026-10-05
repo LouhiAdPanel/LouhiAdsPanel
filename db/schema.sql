@@ -108,10 +108,14 @@ CREATE INDEX idx_cp_placement ON campaign_placements(placement_id);
 -- ---------------------------------------------------------------------
 -- Mainosaineistot (luku 7) – MVP: JPG/PNG + kohde-URL
 -- weight = painotettu näyttöjako (luku 8). Tasajako = kaikilla sama paino.
+-- width/height = mainoksen koko. Mainos näytetään vain mainospaikoissa, joiden
+-- width/height (= maksimikoko) on vähintään yhtä suuri.
 -- ---------------------------------------------------------------------
 CREATE TABLE creatives (
     id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    campaign_id INTEGER     NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    -- Kampanja on valinnainen: mainos voi odottaa mainoskirjastossa ilman kampanjaa.
+    -- Kampanjan poisto ei poista mainosta, vaan irrottaa sen kampanjasta.
+    campaign_id INTEGER     REFERENCES campaigns(id) ON DELETE SET NULL,
     name        TEXT        NOT NULL,
     image_url   TEXT        NOT NULL,
     target_url  TEXT        NOT NULL CHECK (target_url ~* '^https?://'),

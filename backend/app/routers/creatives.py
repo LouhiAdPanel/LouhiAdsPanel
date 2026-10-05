@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..db import delete_row, get_conn, get_row, insert_row, update_row
-from ..media import MAX_UPLOAD_BYTES, InvalidImage, delete_local_image, save_image
+from ..media import MAX_UPLOAD_BYTES, InvalidImage, delete_local_image, local_image_size, save_image
 from ..schemas import CreativeIn
 
 router = APIRouter(prefix="/api/creatives", tags=["Mainokset"])
@@ -12,16 +12,48 @@ SELECT cr.*,
        a.id   AS advertiser_id,
        a.name AS advertiser_name
 FROM creatives cr
-JOIN campaigns c   ON c.id = cr.campaign_id
-JOIN advertisers a ON a.id = c.advertiser_id
+LEFT JOIN campaigns c   ON c.id = cr.campaign_id      -- kampanja on valinnainen
+LEFT JOIN advertisers a ON a.id = c.advertiser_id
 WHERE (%(id)s::int          IS NULL OR cr.id = %(id)s)
   AND (%(campaign_id)s::int IS NULL OR cr.campaign_id = %(campaign_id)s)
-ORDER BY a.name, c.name, cr.name
+  AND (NOT %(unassigned)s OR cr.campaign_id IS NULL)
+ORDER BY a.name NULLS FIRST, c.name NULLS FIRST, cr.name
+"""
+
+# Mainospaikat, joihin mainos voisi päätyä: kampanjan paikat, tai ilman kampanjaa kaikki aktiiviset.
+CANDIDATE_PLACEMENTS_SQL = """
+SELECT p.name, p.width, p.height
+FROM placements p
+WHERE CASE WHEN %(campaign_id)s::int IS NULL THEN p.status = 'active'
+           ELSE p.id IN (SELECT placement_id FROM campaign_placements WHERE campaign_id = %(campaign_id)s)
+      END
+ORDER BY p.width * p.height DESC
 """
 
 
+def _prepare(conn, body: CreativeIn) -> dict:
+    """Mitat luetaan ladatusta kuvasta (ei luoteta lomakkeen arvoihin) ja tarkistetaan,
+    että mainos mahtuu vähintään yhteen mainospaikkaan. Mainospaikan koko = maksimikoko."""
+    data = body.model_dump()
+    size = local_image_size(data["image_url"])
+    if size:
+        data["width"], data["height"] = size
+    w, h = data["width"], data["height"]
+    if not (w and h):
+        return data  # ulkoinen kuva ilman mittoja: ei voida tarkistaa
+
+    places = conn.execute(CANDIDATE_PLACEMENTS_SQL, {"campaign_id": data["campaign_id"]}).fetchall()
+    if places and not any(w <= p["width"] and h <= p["height"] for p in places):
+        limits = ", ".join(f'{p["name"]} {p["width"]}×{p["height"]}' for p in places[:5])
+        where = "kampanjan mainospaikkoihin" if data["campaign_id"] else "yhteenkään aktiiviseen mainospaikkaan"
+        raise HTTPException(
+            422, f"Mainos ({w}×{h} px) ei mahdu {where}. Mainospaikkojen maksimikoot: {limits}."
+        )
+    return data
+
+
 def _get_or_404(conn, creative_id: int):
-    row = conn.execute(LIST_SQL, {"id": creative_id, "campaign_id": None}).fetchone()
+    row = conn.execute(LIST_SQL, {"id": creative_id, "campaign_id": None, "unassigned": False}).fetchone()
     if not row:
         raise HTTPException(404, "Mainosta ei löytynyt.")
     return row
@@ -42,8 +74,11 @@ async def upload_image(request: Request):
 
 
 @router.get("")
-def list_creatives(campaign_id: int | None = None, conn=Depends(get_conn)):
-    return conn.execute(LIST_SQL, {"id": None, "campaign_id": campaign_id}).fetchall()
+def list_creatives(campaign_id: int | None = None, unassigned: bool = False, conn=Depends(get_conn)):
+    """campaign_id = yhden kampanjan mainokset, unassigned=true = mainokset ilman kampanjaa."""
+    return conn.execute(
+        LIST_SQL, {"id": None, "campaign_id": campaign_id, "unassigned": unassigned}
+    ).fetchall()
 
 
 @router.get("/{creative_id}")
@@ -53,7 +88,7 @@ def get_creative(creative_id: int, conn=Depends(get_conn)):
 
 @router.post("", status_code=201)
 def create_creative(body: CreativeIn, conn=Depends(get_conn)):
-    row = insert_row(conn, "creatives", body.model_dump())
+    row = insert_row(conn, "creatives", _prepare(conn, body))
     return _get_or_404(conn, row["id"])
 
 
@@ -62,7 +97,7 @@ def update_creative(creative_id: int, body: CreativeIn, conn=Depends(get_conn)):
     old = get_row(conn, "creatives", creative_id)
     if not old:
         raise HTTPException(404, "Mainosta ei löytynyt.")
-    update_row(conn, "creatives", creative_id, body.model_dump())
+    update_row(conn, "creatives", creative_id, _prepare(conn, body))
     result = _get_or_404(conn, creative_id)
     if old["image_url"] != body.image_url:
         conn.commit()                         # poistetaan vanha kuva vasta kun tallennus onnistui

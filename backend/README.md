@@ -74,10 +74,12 @@ Uusien tiedostojen tai `.env`-muutosten jälkeen kannattaa silti pysäyttää (C
 
 ### Tietokantamuutokset olemassa olevaan kantaan
 
-Jos tietokanta on luotu ennen kirjautumisen lisäämistä, aja kerran (ei poista dataa):
+Aja kerran ne migraatiot, joita kantaasi ei vielä ole ajettu (eivät poista dataa,
+ja saman migraation voi ajaa turvallisesti uudelleen):
 
 ```powershell
-psql -U postgres -d louhiads -f ..\db\migrations\001_auth.sql
+psql -U postgres -d louhiads -f ..\db\migrations\001_auth.sql                     # kirjautuminen
+psql -U postgres -d louhiads -f ..\db\migrations\002_creative_campaign_optional.sql # kampanja valinnainen
 ```
 
 ## Asetukset (`.env`)
@@ -131,7 +133,7 @@ Kaikki dokumentoitu ja kokeiltavissa: http://localhost:8000/docs
 | GET/PUT/DELETE | `/api/campaigns/{id}` | kirjautunut | Yksi kampanja (sis. `placement_ids`) |
 | PATCH | `/api/campaigns/{id}/status` | kirjautunut | Aktivoi / pauseta / arkistoi |
 | POST | `/api/creatives/upload` | kirjautunut | Mainoskuvan lataus (JPG/PNG) |
-| GET/POST | `/api/creatives?campaign_id=` | kirjautunut | Mainokset / luonti |
+| GET/POST | `/api/creatives?campaign_id=&unassigned=` | kirjautunut | Mainokset / luonti (kampanja valinnainen) |
 | GET/PUT/DELETE | `/api/creatives/{id}` | kirjautunut | Yksi mainos |
 | GET | `/api/stats/summary` | kirjautunut | Dashboardin luvut tältä päivältä |
 | GET | `/api/stats/report?group_by=&start=&end=&campaign_id=` | kirjautunut | Raportti (`campaign`, `creative`, `placement`, `day`; oletus 30 pv) |
@@ -155,6 +157,20 @@ Virheet palautetaan suomeksi: 401 (ei kirjautunut), 403 (ei oikeuksia), 404 (ei 
 - Kun mainoksen kuva vaihdetaan tai mainos poistetaan, vanha tiedosto poistetaan.
 - Mainostagi saa kuvan absoluuttisena osoitteena, jotta se toimii muilla sivustoilla.
 
+### Mainoksen koko ja mainospaikan maksimikoko
+- Mainospaikan leveys ja korkeus ovat **maksimikoko**: paikkaan näytetään vain mainoksia,
+  joiden leveys ≤ paikan leveys ja korkeus ≤ paikan korkeus.
+- Ladatun kuvan mitat luetaan aina tiedostosta palvelimella (lomakkeen arvoihin ei luoteta).
+- Tallennus estetään (422), jos mainos ei mahdu yhteenkään mahdolliseen paikkaan:
+  kampanjan mainospaikkoihin, tai ilman kampanjaa yhteenkään aktiiviseen mainospaikkaan.
+- Kampanjalistassa varoitetaan, jos kampanjassa on mainoksia, jotka eivät mahdu sen paikkoihin.
+
+### Mainos ilman kampanjaa
+- Kampanja on valinnainen: mainoksen voi lisätä ensin ja liittää kampanjaan myöhemmin.
+  Mainoksia ilman kampanjaa ei näytetä sivustoilla.
+- `GET /api/creatives?unassigned=true` listaa mainokset ilman kampanjaa.
+- Kampanjan poisto ei poista sen mainoksia, vaan ne jäävät ilman kampanjaa.
+
 ### Placement ID
 - Muodostetaan automaattisesti mainospaikan nimestä (`slug.py`):
   "Louhi Konsoli – sivupalkki" → `louhi_konsoli_sivupalkki`.
@@ -163,7 +179,7 @@ Virheet palautetaan suomeksi: 401 (ei kirjautunut), 403 (ei oikeuksia), 404 (ei 
 
 ### Mainoksen valinta (`/api/v1/ad`)
 Aktiivinen mainospaikka → aktiiviset kampanjat, joiden aikaväli on käynnissä → aktiiviset
-mainokset, joiden paino > 0 → korkeimman prioriteetin kampanjat → painotettu arvonta →
+mainokset, joiden paino > 0 ja jotka mahtuvat mainospaikan maksimikokoon → korkeimman prioriteetin kampanjat → painotettu arvonta →
 näyttö kirjataan. Jos sopivaa mainosta ei ole, vastaus on 204 ja mainospaikka jää tyhjäksi.
 
 ## Testaus selaimessa
