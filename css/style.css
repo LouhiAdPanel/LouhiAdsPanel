@@ -525,3 +525,312 @@ img { max-width: 100%; display: block; }
   .stat-row, .status-row { grid-template-columns: 1fr; }
   .section-toolbar { flex-direction: column; align-items: flex-start; }
 }
+
+/* ---------- 7. Dynaamiset komponentit (JavaScript) ---------- */
+
+/* Taulukon lataus-/tyhjä-/virheviesti */
+.table-message {
+  padding: 28px 22px !important;
+  text-align: center;
+  color: var(--ink-600);
+}
+.table-message.is-error { color: var(--brick-600); white-space: pre-line; }
+
+.cell-actions { text-align: right; white-space: nowrap; }
+.cell-actions .btn-ghost { padding: 4px 6px; font-size: 13px; font-weight: 600; }
+.cell-num { font-variant-numeric: tabular-nums; }
+.cell-sub {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-600);
+  margin-top: 2px;
+}
+a.cell-sub:hover, .data-table td a:hover { color: var(--azurite-600); text-decoration: underline; }
+
+.btn-danger {
+  background: var(--brick-100);
+  color: var(--brick-600);
+}
+.btn-danger:hover { background: var(--brick-600); color: #fff; }
+.btn:disabled { opacity: 0.6; cursor: wait; }
+
+/* Mainoskortin kuva */
+.creative-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--stone-100);
+}
+.creative-footer .btn-ghost { padding: 4px 4px; font-weight: 600; font-size: 13px; }
+
+/* Modaali-ikkuna */
+/* Keskitys tehdään itse (position + inset + margin:auto), koska tiedoston alun
+   '* { margin: 0 }' -nollaus poistaa selaimen oman <dialog>-keskityksen. */
+.modal {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  height: fit-content;
+  width: min(640px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100vh - 48px);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0;
+  overflow: hidden;
+  background: var(--stone-100);
+  box-shadow: 0 20px 50px rgba(20, 24, 29, 0.25);
+  color: var(--ink-900);
+}
+.modal:not([open]) { display: none; }
+.modal[open] { display: flex; flex-direction: column; animation: modal-in 0.18s ease-out; }
+.modal::backdrop { background: rgba(20, 24, 29, 0.45); backdrop-filter: blur(2px); }
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+/* Sivun vieritys estetään, kun ikkuna on auki */
+body:has(.modal[open]) { overflow: hidden; }
+
+.modal-form { display: flex; flex-direction: column; max-height: calc(100vh - 48px); min-height: 0; }
+.modal > .modal-body { overflow-y: auto; }
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--stone-200);
+}
+.modal-header h2 { font-size: 17px; }
+
+.modal-close {
+  font-size: 24px;
+  line-height: 1;
+  color: var(--ink-600);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+.modal-close:hover { background: var(--stone-50); color: var(--ink-900); }
+
+.modal-body { padding: 20px 22px; overflow-y: auto; }
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--stone-200);
+  background: var(--stone-50);
+}
+.modal-footer .spacer { flex: 1; }
+
+/* Lomakkeet */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+}
+
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; border: none; }
+.field-wide { grid-column: 1 / -1; }
+.field label, .field legend { font-size: 13px; font-weight: 600; color: var(--ink-900); }
+.field .input, .field .select { width: 100%; min-width: 0; font-size: 14px; }
+.field textarea.input { resize: vertical; font-family: inherit; }
+.field .input:focus, .field .select:focus { border-color: var(--azurite-500); outline: none; box-shadow: 0 0 0 3px var(--azurite-100); }
+.field .input:user-invalid { border-color: var(--brick-600); }
+.field-help { font-size: 12px; color: var(--ink-600); }
+
+.check-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--stone-300);
+  border-radius: var(--radius-sm);
+  margin-top: 5px;
+}
+.check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer; }
+.check input { accent-color: var(--azurite-600); width: 15px; height: 15px; }
+
+.form-error {
+  margin-top: 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--brick-100);
+  color: var(--brick-600);
+  font-size: 13px;
+  white-space: pre-line;
+}
+
+.image-preview img {
+  max-height: 160px;
+  width: auto;
+  border: 1px solid var(--stone-200);
+  border-radius: var(--radius-sm);
+}
+
+/* Esikatselu ja upotuskoodi */
+.preview-frame {
+  background: var(--stone-50);
+  border: 1px solid var(--stone-200);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: center;
+}
+.detail-list { display: grid; grid-template-columns: 130px 1fr; gap: 6px 12px; font-size: 13.5px; }
+.detail-list dt { color: var(--ink-600); }
+.detail-list dd { word-break: break-all; }
+.detail-list a { color: var(--azurite-600); }
+
+.code-block {
+  background: var(--slate-950);
+  color: #E8E6DF;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Ilmoitukset (toast) */
+.toast-container {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1000;
+}
+.toast {
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 500;
+  box-shadow: 0 6px 20px rgba(20, 24, 29, 0.18);
+  max-width: 360px;
+  white-space: pre-line;
+  animation: toast-in 0.2s ease-out;
+}
+.toast-success { background: var(--slate-900); color: #fff; }
+.toast-error   { background: var(--brick-600); color: #fff; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 760px) {
+  .form-grid, .check-group { grid-template-columns: 1fr; }
+  .detail-list { grid-template-columns: 1fr; }
+}
+
+/* Korjaukset: KPI-kortin otsikko ja arvo omille riveilleen, mainoskortin painikkeet riviin */
+.stat-card .stat-label, .stat-card .stat-value { display: block; }
+.creative-footer > span { display: flex; gap: 6px; }
+
+/* ---------- 8. Kirjautuminen ja roolit ---------- */
+
+/* Vain adminille näkyvät elementit (piilossa, kunnes rooli on varmistettu) */
+body:not(.role-admin) .admin-only { display: none !important; }
+
+/* Sivupalkin käyttäjätoiminnot */
+.user-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 12px;
+}
+.user-actions button {
+  color: var(--stone-400);
+  font-size: 12.5px;
+  padding: 0;
+}
+.user-actions button:hover { color: #fff; text-decoration: underline; }
+
+.role-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+}
+.role-badge-admin  { background: var(--azurite-100); color: var(--azurite-700); }
+.role-badge-editor { background: var(--slate-status-100); color: var(--slate-status-600); }
+
+/* Kirjautumissivu */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(43, 124, 174, 0.18), transparent 60%),
+    var(--slate-950);
+}
+.login-card {
+  width: min(400px, 100%);
+  background: var(--stone-100);
+  border-radius: var(--radius-md);
+  padding: 32px 32px 26px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+.login-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 26px; }
+.login-brand .brand-name { color: var(--ink-900); }
+.login-card h1 { font-size: 22px; }
+.login-lead { color: var(--ink-600); margin: 4px 0 22px; }
+.login-card form { display: flex; flex-direction: column; gap: 14px; }
+.login-card .form-error { margin-top: 0; }
+.login-submit { justify-content: center; padding: 12px 16px; margin-top: 4px; }
+.login-help { margin-top: 18px; font-size: 12.5px; color: var(--ink-600); text-align: center; }
+
+/* ---------- 9. Kuvan lataus ---------- */
+.field-label { font-size: 13px; font-weight: 600; color: var(--ink-900); }
+.image-drop {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 12px;
+  border: 1px dashed var(--stone-300);
+  border-radius: var(--radius-sm);
+  background: var(--stone-50);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.image-drop.is-dragover { border-color: var(--azurite-500); background: var(--azurite-100); }
+.image-drop-preview {
+  width: 160px;
+  height: 90px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--stone-100);
+  border: 1px solid var(--stone-200);
+  border-radius: var(--radius-sm);
+  color: var(--stone-400);
+  font-size: 12px;
+  overflow: hidden;
+}
+.image-drop-preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.image-drop-body { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.image-drop-body .btn { cursor: pointer; padding: 8px 14px; font-size: 13px; }
+.upload-status { font-size: 12.5px; color: var(--malachite-600); word-break: break-all; }
+.upload-status.is-error { color: var(--brick-600); }
+@media (max-width: 760px) {
+  .image-drop { flex-direction: column; align-items: flex-start; }
+}
+
+/* Placement ID:n esikatselu mainospaikkalomakkeessa */
+.code-preview {
+  font-family: 'Courier New', monospace;
+  font-size: 13.5px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--stone-50);
+  border: 1px solid var(--stone-200);
+  color: var(--azurite-700);
+  word-break: break-all;
+}
+.code-preview.is-taken { color: var(--amber-600); }
+.code-preview.is-taken::after { content: '  (varattu – saa numeron)'; font-family: var(--font-body); font-size: 12px; }

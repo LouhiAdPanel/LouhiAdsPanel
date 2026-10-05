@@ -6,7 +6,7 @@
 <title>Kampanjat · Louhi Ads</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=5">
 </head>
 <body>
 <div class="app">
@@ -41,16 +41,12 @@
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="2" y1="16" x2="16" y2="16"/><rect x="3.5" y="10" width="3" height="6"/><rect x="7.7" y="6" width="3" height="10"/><rect x="11.9" y="3" width="3" height="13"/></svg>
         Raportointi
       </a>
+      <a href="users.html" class="nav-link admin-only">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="6" r="2.8"/><path d="M1.8 15.5c.6-2.8 2.7-4.3 5.2-4.3s4.6 1.5 5.2 4.3"/><path d="M12 3.6a2.6 2.6 0 0 1 0 5"/><path d="M13.6 11.4c1.4.6 2.3 2 2.6 4.1"/></svg>
+        Käyttäjät
+      </a>
     </nav>
-    <div class="sidebar-footer">
-      <div class="user-chip">
-        <span class="avatar">JK</span>
-        <div>
-          <span class="user-name">Johnny Kuoppala</span>
-          <span class="user-role">Admin</span>
-        </div>
-      </div>
-    </div>
+    <div class="sidebar-footer"></div>
   </aside>
 
   <main class="main-content">
@@ -59,28 +55,25 @@
         <h1>Kampanjat</h1>
         <p>Luo, muokkaa, aktivoi ja pausee kampanjoita.</p>
       </div>
-      <button class="btn btn-primary">+ Luo uusi kampanja</button>
+      <button class="btn btn-primary" id="new-campaign">+ Luo uusi kampanja</button>
     </div>
 
     <div class="section-card">
       <div class="section-toolbar">
-        <h2>Kaikki kampanjat (7)</h2>
+        <h2 id="campaigns-count">Kampanjat</h2>
         <div class="filters">
-          <input class="input" type="text" placeholder="Hae kampanjan nimellä">
-          <select class="select">
-            <option>Kaikki tilat</option>
-            <option>Aktiivinen</option>
-            <option>Odottaa alkamista</option>
-            <option>Keskeytetty</option>
-            <option>Luonnos</option>
+          <input class="input" type="search" id="campaign-search" placeholder="Hae kampanjan nimellä">
+          <select class="select" id="campaign-status-filter">
+            <option value="">Kaikki tilat</option>
+            <option value="active">Aktiivinen</option>
+            <option value="pending">Odottaa alkamista</option>
+            <option value="paused">Keskeytetty</option>
+            <option value="draft">Luonnos</option>
+            <option value="ended">Päättynyt</option>
+            <option value="archived">Arkistoitu</option>
           </select>
-          <select class="select">
-            <option>Kaikki mainostajat</option>
-            <option>SaaShop</option>
-            <option>Getafix</option>
-            <option>Pilvi</option>
-            <option>Goodi</option>
-            <option>Louhi</option>
+          <select class="select" id="campaign-advertiser-filter">
+            <option value="">Kaikki mainostajat</option>
           </select>
         </div>
       </div>
@@ -96,56 +89,14 @@
             <th></th>
           </tr>
         </thead>
-        <tbody>
-          <tr>
-            <td>SaaShop Pipedrive Q4</td>
-            <td class="cell-muted">SaaShop</td>
-            <td class="cell-muted">Louhi Konsoli, Domain Panel</td>
-            <td><span class="pill pill-active">Aktiivinen</span></td>
-            <td class="cell-muted">1.10.2026</td>
-            <td class="cell-muted">31.12.2026</td>
-            <td><a href="#" class="btn-ghost">Muokkaa</a></td>
-          </tr>
-          <tr>
-            <td>Pilvi Cloud -nosto</td>
-            <td class="cell-muted">Pilvi</td>
-            <td class="cell-muted">Louhi Konsoli</td>
-            <td><span class="pill pill-active">Aktiivinen</span></td>
-            <td class="cell-muted">1.9.2026</td>
-            <td class="cell-muted">30.9.2026</td>
-            <td><a href="#" class="btn-ghost">Muokkaa</a></td>
-          </tr>
-          <tr>
-            <td>Getafix syyskampanja</td>
-            <td class="cell-muted">Getafix</td>
-            <td class="cell-muted">Tukiportaali</td>
-            <td><span class="pill pill-pending">Odottaa alkamista</span></td>
-            <td class="cell-muted">1.10.2026</td>
-            <td class="cell-muted">15.10.2026</td>
-            <td><a href="#" class="btn-ghost">Muokkaa</a></td>
-          </tr>
-          <tr>
-            <td>Louhi cPanel -tiedote</td>
-            <td class="cell-muted">Louhi</td>
-            <td class="cell-muted">cPanel</td>
-            <td><span class="pill pill-paused">Keskeytetty</span></td>
-            <td class="cell-muted">1.8.2026</td>
-            <td class="cell-muted">31.8.2026</td>
-            <td><a href="#" class="btn-ghost">Muokkaa</a></td>
-          </tr>
-          <tr>
-            <td>Goodi verkkosivu-banneri</td>
-            <td class="cell-muted">Goodi</td>
-            <td class="cell-muted">Louhi.fi sivupalkki</td>
-            <td><span class="pill pill-draft">Luonnos</span></td>
-            <td class="cell-muted">–</td>
-            <td class="cell-muted">–</td>
-            <td><a href="#" class="btn-ghost">Muokkaa</a></td>
-          </tr>
-        </tbody>
+        <tbody id="campaigns-body"></tbody>
       </table>
     </div>
   </main>
 </div>
+  <script src="js/api.js?v=5"></script>
+  <script src="js/ui.js?v=5"></script>
+  <script src="js/auth.js?v=5"></script>
+  <script src="js/campaigns.js?v=5"></script>
 </body>
 </html>

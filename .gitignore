@@ -1,0 +1,6 @@
+# Käyttäjien lataamat mainoskuvat (eivät kuulu versionhallintaan)
+media/
+
+# Python
+__pycache__/
+*.pyc

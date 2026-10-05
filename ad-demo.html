@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mainostagin demo · Louhi Ads</title>
+<style>
+  body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; margin: 0; background: #F6F5F1; color: #1C2024; }
+  header { background: #14181D; color: #fff; padding: 16px 32px; font-weight: 600; }
+  main { max-width: 1260px; margin: 0 auto; padding: 28px 32px 60px; }
+  .note { background: #E4EEF4; border-radius: 8px; padding: 14px 18px; margin-bottom: 28px; font-size: 14px; line-height: 1.5; }
+  .slot { margin-bottom: 32px; }
+  .slot-label { font-size: 12px; color: #565D66; margin-bottom: 6px; font-family: 'Courier New', monospace; }
+  .louhi-ad { min-height: 20px; border: 1px dashed #D8D5CB; border-radius: 4px; padding: 6px; background: #fff; }
+  .louhi-ad:empty::after { content: 'Ei näytettävää mainosta (204) tai palvelin ei vastannut.'; color: #A6A296; font-size: 13px; }
+  code { background: #fff; padding: 1px 5px; border-radius: 3px; }
+  a { color: #1D5E89; }
+</style>
+</head>
+<body>
+<header>Louhi Konsoli — mainostagin testisivu</header>
+<main>
+  <div class="note">
+    Tämä sivu simuloi Louhen palvelua, johon mainostagi <code>louhi-ads.js</code> on upotettu.
+    Jokainen sivun lataus hakee uuden mainoksen ja kirjaa <strong>näytön</strong>; mainoksen
+    klikkaus kirjaa <strong>klikkauksen</strong> ja ohjaa kohdesivulle UTM-parametreilla.
+    Tulokset näkyvät <a href="reporting.html">Raportointi</a>-sivulla.
+    Päivitä sivu (F5) nähdäksesi painotetun arvonnan toiminnan.
+  </div>
+  <div id="slots"></div>
+</main>
+
+<script>
+  // ?placement=koodi näyttää vain yhden mainospaikan, muuten oletuspaikat.
+  (function () {
+    var one = new URLSearchParams(location.search).get('placement');
+    var codes = one ? [one] : ['louhi_console_main', 'louhi_domain_panel', 'louhi_support_banner'];
+    var html = '';
+    codes.forEach(function (code) {
+      var safe = code.replace(/[^a-z0-9_]/g, '');
+      html += '<div class="slot"><div class="slot-label">data-placement="' + safe + '"</div>' +
+              '<div class="louhi-ad" data-placement="' + safe + '"></div></div>';
+    });
+    document.getElementById('slots').innerHTML = html;
+  })();
+</script>
+<script src="louhi-ads.js?v=5" async></script>
+</body>
+</html>

@@ -6,7 +6,7 @@
 <title>Raportointi · Louhi Ads</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=5">
 </head>
 <body>
 <div class="app">
@@ -41,16 +41,12 @@
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="2" y1="16" x2="16" y2="16"/><rect x="3.5" y="10" width="3" height="6"/><rect x="7.7" y="6" width="3" height="10"/><rect x="11.9" y="3" width="3" height="13"/></svg>
         Raportointi
       </a>
+      <a href="users.html" class="nav-link admin-only">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="6" r="2.8"/><path d="M1.8 15.5c.6-2.8 2.7-4.3 5.2-4.3s4.6 1.5 5.2 4.3"/><path d="M12 3.6a2.6 2.6 0 0 1 0 5"/><path d="M13.6 11.4c1.4.6 2.3 2 2.6 4.1"/></svg>
+        Käyttäjät
+      </a>
     </nav>
-    <div class="sidebar-footer">
-      <div class="user-chip">
-        <span class="avatar">JK</span>
-        <div>
-          <span class="user-name">Johnny Kuoppala</span>
-          <span class="user-role">Admin</span>
-        </div>
-      </div>
-    </div>
+    <div class="sidebar-footer"></div>
   </aside>
 
   <main class="main-content">
@@ -59,70 +55,57 @@
         <h1>Raportointi</h1>
         <p>Näytöt, klikkaukset ja CTR kampanjoittain.</p>
       </div>
-      <button class="btn btn-secondary">⭳ Vie CSV</button>
+      <button class="btn btn-secondary" id="report-csv">⭳ Vie CSV</button>
     </div>
 
     <div class="section-card">
       <div class="section-toolbar">
-        <h2>Ajanjakso: 1.9.–22.9.2026</h2>
+        <h2 id="report-period-title">Ajanjakso</h2>
         <div class="filters">
-          <select class="select">
-            <option>Kaikki kampanjat</option>
-            <option>SaaShop Pipedrive Q4</option>
-            <option>Pilvi Cloud -nosto</option>
+          <select class="select" id="report-campaign">
+            <option value="">Kaikki kampanjat</option>
           </select>
-          <select class="select">
-            <option>Viimeiset 30 päivää</option>
-            <option>Tämä kuukausi</option>
-            <option>Mukautettu</option>
+          <select class="select" id="report-period">
+            <option value="7">Viimeiset 7 päivää</option>
+            <option value="30" selected>Viimeiset 30 päivää</option>
+            <option value="90">Viimeiset 90 päivää</option>
+            <option value="this-month">Tämä kuukausi</option>
+            <option value="last-month">Edellinen kuukausi</option>
+          </select>
+          <select class="select" id="report-group">
+            <option value="campaign">Kampanjoittain</option>
+            <option value="creative">Mainoksittain</option>
+            <option value="placement">Mainospaikoittain</option>
+            <option value="day">Päivittäin</option>
           </select>
         </div>
       </div>
 
       <div class="report-summary">
         <div class="metric">
-          <span class="metric-value">20 900</span>
+          <span class="metric-value" id="sum-impressions">–</span>
           <span class="metric-label">Näytöt yhteensä</span>
         </div>
         <div class="metric">
-          <span class="metric-value">279</span>
+          <span class="metric-value" id="sum-clicks">–</span>
           <span class="metric-label">Klikkaukset yhteensä</span>
         </div>
         <div class="metric">
-          <span class="metric-value">1,33 %</span>
+          <span class="metric-value" id="sum-ctr">–</span>
           <span class="metric-label">Keskimääräinen CTR</span>
         </div>
       </div>
 
       <table class="data-table">
-        <thead>
-          <tr>
-            <th>Kampanja</th>
-            <th>Mainospaikka</th>
-            <th>Näytöt</th>
-            <th>Klikit</th>
-            <th>CTR</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>SaaShop Pipedrive Q4</td>
-            <td class="cell-muted">louhi_console_main</td>
-            <td class="cell-muted">12 400</td>
-            <td class="cell-muted">186</td>
-            <td class="cell-muted">1,50 %</td>
-          </tr>
-          <tr>
-            <td>Pilvi Cloud -nosto</td>
-            <td class="cell-muted">louhi_console_main</td>
-            <td class="cell-muted">8 500</td>
-            <td class="cell-muted">93</td>
-            <td class="cell-muted">1,09 %</td>
-          </tr>
-        </tbody>
+        <thead id="report-head"></thead>
+        <tbody id="report-body"></tbody>
       </table>
     </div>
   </main>
 </div>
+  <script src="js/api.js?v=5"></script>
+  <script src="js/ui.js?v=5"></script>
+  <script src="js/auth.js?v=5"></script>
+  <script src="js/reporting.js?v=5"></script>
 </body>
 </html>
