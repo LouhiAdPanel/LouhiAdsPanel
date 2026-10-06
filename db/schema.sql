@@ -12,7 +12,7 @@ SET client_min_messages = warning;
 
 DROP VIEW  IF EXISTS v_campaign_status, v_daily_stats CASCADE;
 DROP TABLE IF EXISTS clicks, impressions, targeting_rules, campaign_placements,
-                     creatives, campaigns, placements, advertisers, sessions, users CASCADE;
+                     creatives, campaigns, placements, advertisers, sessions, users, media_files CASCADE;
 
 -- ---------------------------------------------------------------------
 -- Käyttäjät (luku 14: Admin ja Editor)
@@ -129,6 +129,21 @@ CREATE TABLE creatives (
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_creatives_campaign ON creatives(campaign_id);
+
+-- ---------------------------------------------------------------------
+-- Ladatut mainoskuvat. Tallennetaan tietokantaan, jotta ne säilyvät myös
+-- pilvipalvelimella, jonka levy tyhjenee uudelleenkäynnistyksessä.
+-- creatives.image_url = '/media/' || name
+-- ---------------------------------------------------------------------
+CREATE TABLE media_files (
+    name         TEXT        PRIMARY KEY,               -- satunnainen, esim. 3f9a…c2.png
+    content_type TEXT        NOT NULL CHECK (content_type IN ('image/png', 'image/jpeg')),
+    data         BYTEA       NOT NULL,
+    width        INTEGER     NOT NULL CHECK (width  > 0),
+    height       INTEGER     NOT NULL CHECK (height > 0),
+    bytes        INTEGER     NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 -- ---------------------------------------------------------------------
 -- Kohdennussäännöt (luku 9) – valmiina myöhempää käyttöä varten

@@ -4,7 +4,7 @@
 |--------------|---------|
 | `schema.sql` | Taulut, indeksit, triggerit ja raportointinäkymät. **Pudottaa olemassa olevat taulut** – vain kehityskäyttöön. |
 | `seed.sql`   | Testidata: 5 mainostajaa, 5 mainospaikkaa, 5 kampanjaa, 7 mainosta sekä keinotekoiset näytöt/klikkaukset 14 päivältä. |
-| `migrations/` | Muutokset olemassa olevaan kantaan ilman datan poistoa (`001_auth.sql` kirjautuminen, `002_creative_campaign_optional.sql` mainoksen kampanja valinnaiseksi). |
+| `migrations/` | Muutokset olemassa olevaan kantaan ilman datan poistoa (`001_auth.sql` kirjautuminen, `002_creative_campaign_optional.sql` mainoksen kampanja valinnaiseksi, `003_media_in_db.sql` mainoskuvat tietokantaan). |
 
 ## Käyttöönotto (Windows, PowerShell)
 

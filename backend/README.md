@@ -80,6 +80,7 @@ ja saman migraation voi ajaa turvallisesti uudelleen):
 ```powershell
 psql -U postgres -d louhiads -f ..\db\migrations\001_auth.sql                     # kirjautuminen
 psql -U postgres -d louhiads -f ..\db\migrations\002_creative_campaign_optional.sql # kampanja valinnainen
+psql -U postgres -d louhiads -f ..\db\migrations\003_media_in_db.sql               # kuvat tietokantaan
 ```
 
 ## Asetukset (`.env`)
@@ -152,7 +153,8 @@ Virheet palautetaan suomeksi: 401 (ei kirjautunut), 403 (ei oikeuksia), 404 (ei 
 - Ladataan lomakkeessa (valinta tai raahaus) → `POST /api/creatives/upload`.
   Pyynnön runko on kuvatiedosto sellaisenaan (ei multipart), joten lisäpaketteja ei tarvita.
 - Vain JPG ja PNG. Tyyppi tarkistetaan **tiedoston sisällöstä**, ei nimestä.
-- Tallennus: `LouhiAds/media/<satunnainen nimi>.png|jpg`, tietokantaan `image_url = /media/...`.
+- Tallennus: tietokantaan tauluun `media_files` (säilyy pilvessäkin), mainokselle `image_url = /media/<nimi>`.
+  Kuvat tarjoillaan osoitteesta `/media/<nimi>`. Vanhat levylle (`LouhiAds/media/`) ladatut kuvat toimivat edelleen.
   Leveys ja korkeus luetaan kuvasta.
 - Kun mainoksen kuva vaihdetaan tai mainos poistetaan, vanha tiedosto poistetaan.
 - Mainostagi saa kuvan absoluuttisena osoitteena, jotta se toimii muilla sivustoilla.
@@ -201,6 +203,25 @@ näyttö kirjataan. Jos sopivaa mainosta ei ole, vastaus on 204 ja mainospaikka 
 | Tietokantavirhe käynnistyksessä / `password authentication failed` | Tarkista `.env`:n `DATABASE_URL` ja salasana. Tiedoston nimen on oltava `.env`, ei `.env.txt` (Notepad: Tallennusmuoto → Kaikki tiedostot). |
 | Muutokset eivät näy selaimessa | Käynnistä palvelin uudelleen ja paina selaimessa Ctrl+F5. |
 | Kirjautuminen lukittui | 5 väärää yritystä → odota 15 min tai käynnistä palvelin uudelleen. |
+
+## Julkaisu: Render + Neon (testiympäristö)
+
+| Osa | Palvelu | Huom. |
+|-----|---------|-------|
+| Backend + hallintapaneeli | Render (free web service, Frankfurt) | Nukahtaa 15 min jälkeen, herää ~30–60 s |
+| PostgreSQL | Neon (free, AWS Frankfurt) | Ei vanhene |
+| Mainoskuvat | Neon, taulu `media_files` | Renderin levy tyhjenee, siksi kuvat tietokannassa |
+
+Asetukset ovat tiedostossa `render.yaml`. Käynnistyskomennon `--proxy-headers` on tärkeä:
+Render purkaa HTTPS:n, ja ilman sitä mainostagin kuva- ja klikkiosoitteet olisivat `http://`.
+
+**Uusi versio julkaistaan pushaamalla `main`-haaraan** – Render julkaisee automaattisesti.
+
+**Tietokantamuutokset Neoniin** ajetaan omalta koneelta Neonin yhteysosoitteella:
+
+```powershell
+psql "postgresql://...neon.tech/neondb?sslmode=require" -f db/migrations/00X_nimi.sql
+```
 
 ## Tuotantoon vietäessä
 

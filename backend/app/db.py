@@ -17,6 +17,9 @@ pool = ConnectionPool(
     min_size=1,
     max_size=10,
     kwargs={"row_factory": dict_row},
+    # Tarkistetaan yhteys ennen käyttöä: pilvitietokanta (esim. Neon) sulkee
+    # käyttämättömät yhteydet, jolloin pooliin jäänyt yhteys voi olla katkennut.
+    check=ConnectionPool.check_connection,
     open=False,  # avataan main.py:n lifespanissa
 )
 

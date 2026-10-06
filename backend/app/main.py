@@ -12,12 +12,13 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from psycopg import errors as pg_errors
 
 from .auth import SESSION_COOKIE, get_current_user, user_for_token
 from .db import pool
+from .media import get_image
 from .routers import advertisers, auth, campaigns, creatives, placements, serving, stats, users
 
 
@@ -100,6 +101,19 @@ for r in (advertisers, placements, campaigns, creatives, stats, users):
 # Julkiset: kirjautuminen sekä mainostagin kutsut (/api/v1/ad, /api/v1/click)
 app.include_router(auth.router)
 app.include_router(serving.router)
+
+
+@app.get("/media/{name}", include_in_schema=False)
+def media_file(name: str):
+    """Ladatut mainoskuvat (tietokannasta). Julkinen, koska mainostagi näyttää kuvat
+    muilla sivustoilla. Nimi on satunnainen eikä sisältö muutu -> pitkä välimuisti."""
+    with pool.connection() as conn:
+        found = get_image(conn, name)
+    if not found:
+        raise HTTPException(status_code=404)
+    data, content_type = found
+    return Response(data, media_type=content_type,
+                    headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
 @app.get("/api/health", tags=["Järjestelmä"])

@@ -1,0 +1,25 @@
+# Render-julkaisun asetukset (Blueprint). Palvelu on luotu Renderiin näillä arvoilla.
+# Tietokanta on Neonissa: DATABASE_URL asetetaan Renderin hallintapaneelissa (sync: false).
+services:
+  - type: web
+    name: louhiads
+    runtime: python
+    plan: free
+    region: frankfurt
+    branch: main
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: DATABASE_URL
+        sync: false            # salaisuus: syötetään Renderin Environment-välilehdellä
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: SESSION_HOURS
+        value: "8"
+      - key: MIN_PASSWORD_LENGTH
+        value: "6"
+      - key: CORS_ORIGINS
+        value: "*"

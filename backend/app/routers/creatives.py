@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 
-from ..db import delete_row, get_conn, get_row, insert_row, update_row
+from ..db import delete_row, get_conn, get_row, insert_row, pool, update_row
 from ..media import MAX_UPLOAD_BYTES, InvalidImage, delete_local_image, local_image_size, save_image
 from ..schemas import CreativeIn
 
@@ -35,7 +36,7 @@ def _prepare(conn, body: CreativeIn) -> dict:
     """Mitat luetaan ladatusta kuvasta (ei luoteta lomakkeen arvoihin) ja tarkistetaan,
     että mainos mahtuu vähintään yhteen mainospaikkaan. Mainospaikan koko = maksimikoko."""
     data = body.model_dump()
-    size = local_image_size(data["image_url"])
+    size = local_image_size(conn, data["image_url"])
     if size:
         data["width"], data["height"] = size
     w, h = data["width"], data["height"]
@@ -67,8 +68,13 @@ async def upload_image(request: Request):
     if length and int(length) > MAX_UPLOAD_BYTES:
         raise HTTPException(413, f"Kuva on liian suuri (enintään {MAX_UPLOAD_BYTES // (1024 * 1024)} Mt).")
     data = await request.body()
+
+    def _save():
+        with pool.connection() as conn:
+            return save_image(conn, data)
+
     try:
-        return save_image(data)
+        return await run_in_threadpool(_save)
     except InvalidImage as err:
         raise HTTPException(422, str(err))
 
@@ -100,8 +106,7 @@ def update_creative(creative_id: int, body: CreativeIn, conn=Depends(get_conn)):
     update_row(conn, "creatives", creative_id, _prepare(conn, body))
     result = _get_or_404(conn, creative_id)
     if old["image_url"] != body.image_url:
-        conn.commit()                         # poistetaan vanha kuva vasta kun tallennus onnistui
-        delete_local_image(old["image_url"])
+        delete_local_image(conn, old["image_url"])   # samassa transaktiossa kuin tallennus
     return result
 
 
@@ -110,5 +115,4 @@ def delete_creative(creative_id: int, conn=Depends(get_conn)):
     old = get_row(conn, "creatives", creative_id)
     if not old or not delete_row(conn, "creatives", creative_id):
         raise HTTPException(404, "Mainosta ei löytynyt.")
-    conn.commit()
-    delete_local_image(old["image_url"])
+    delete_local_image(conn, old["image_url"])
