@@ -1,4 +1,4 @@
-/* Kampanjat: listaus suodattimilla, luonti/muokkaus, aktivointi ja pausetus. */
+/* Kampanjat: listaus suodattimilla, luonti/muokkaus, aktivointi ja pysäytys. */
 (() => {
   const tbody = document.getElementById('campaigns-body');
   const countEl = document.getElementById('campaigns-count');
@@ -58,7 +58,7 @@
   /** Nopeat tilatoiminnot rivillä. */
   const quickAction = (c) => {
     if (c.display_status === 'active' || c.display_status === 'pending')
-      return `<button class="btn-ghost" data-status="paused" data-id="${c.id}">Pausea</button>`;
+      return `<button class="btn-ghost" data-status="paused" data-id="${c.id}">Pysäytä</button>`;
     if (c.display_status === 'paused' || c.display_status === 'draft')
       return `<button class="btn-ghost" data-status="active" data-id="${c.id}">Aktivoi</button>`;
     return ''; // päättynyt / arkistoitu: muokataan lomakkeella
