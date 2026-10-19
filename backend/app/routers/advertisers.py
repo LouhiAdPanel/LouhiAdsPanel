@@ -29,7 +29,7 @@ router = APIRouter(prefix="/api/advertisers", tags=["Mainostajat"])
 #   - active_campaign_count: kampanjat, joiden näyttötila (display_status) on 'active'.
 #     v_campaign_status on näkymä (schema.sql), joka laskee tilan päivämäärien perusteella
 #     (esim. 'active' + alkamispäivä tulevaisuudessa -> 'pending').
-#   - creative_count: alikysely, joka laskee mainokset kaikista mainostajan kampanjoista.
+#   - creative_count: alikysely, joka laskee mainostajan mainokset (creatives.advertiser_id).
 # LEFT JOIN pitää mukana myös mainostajat, joilla ei ole kampanjoita (määrä 0).
 # {where} korvataan Pythonissa .format():lla: tyhjä = kaikki, tai "WHERE a.id = %s" = yksi.
 # Itse id-arvo välitetään erikseen parametrina (%s), ei liitetä merkkijonoon (SQL-injektio).
@@ -38,8 +38,7 @@ SELECT a.*,
        count(c.id)                                              AS campaign_count,
        count(c.id) FILTER (WHERE c.display_status = 'active')   AS active_campaign_count,
        (SELECT count(*) FROM creatives cr
-          JOIN campaigns c2 ON c2.id = cr.campaign_id
-         WHERE c2.advertiser_id = a.id)                         AS creative_count
+         WHERE cr.advertiser_id = a.id)                         AS creative_count
 FROM advertisers a
 LEFT JOIN v_campaign_status c ON c.advertiser_id = a.id
 {where}

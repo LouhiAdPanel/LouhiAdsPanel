@@ -28,7 +28,9 @@
     { name: 'name', label: 'Nimi', required: true, maxlength: 100, wide: true },
     { name: 'website_url', label: 'Verkkosivu', type: 'url', placeholder: 'https://www.esimerkki.fi/', wide: true },
     { name: 'status', label: 'Tila', type: 'select', required: true,
-      options: [{ value: 'active', label: 'Aktiivinen' }, { value: 'inactive', label: 'Ei aktiivinen' }] },
+      // Jäädytetyn (suspended) tai ei-aktiivisen mainostajan mainoksia ei jaeta.
+      options: [{ value: 'active', label: 'Aktiivinen' }, { value: 'suspended', label: 'Jäädytetty' },
+        { value: 'inactive', label: 'Ei aktiivinen' }] },
   ];
 
   /**

@@ -1,131 +1,362 @@
-/* Mainokset-sivu (creatives.html): ruudukko, suodatus, luonti, muokkaus, esikatselu.
-   - Kampanja on valinnainen: mainos voi odottaa ilman kampanjaa.
-   - Mainospaikan koko on mainoksen maksimikoko: lomake näyttää, mihin paikkoihin mainos mahtuu.
+/* Mainokset-sivu (creatives.html): korttiruudukko, suodatus, luonti, muokkaus, esikatselu.
+   Toteutettu wireframejen "Mainokset", "Suodata", "Uusi mainos", "Muokkaa mainosta",
+   "Esikatselu" ja "Poista mainos" mukaan.
+
+   - Mainos kuuluu mainostajalle. Kampanja on valinnainen.
+   - Mainos näytetään sijoitusten (placings) kautta: lomakkeella valitaan mainospaikat
+     (vähintään yksi), ja jokaisesta paikasta tehdään sijoitus samoilla asetuksilla:
+     kampanja, paino, prioriteetti ja aikataulu.
+   - Mainospaikan koko on mainoksen maksimikoko: paikat, joihin kuva ei mahdu, eivät ole
+     valittavissa. Pienempi kuva skaalataan näytettäessä paikan kokoon (louhi-ads.js).
+   - Jos mainos liitetään kampanjaan, valittavissa ovat vain kampanjan mainospaikat
+     (Kampanjat-sivulla valitut sallitut paikat). Palvelin tarkistaa saman.
 
    Käyttäjä (admin ja editor) voi:
-   - selata mainoksia korttiruudukkona ja suodattaa kampanjan mukaan tai "Ilman kampanjaa"
-   - ladata mainoskuvan, luoda, muokata ja poistaa mainoksia sekä esikatsella niitä
+   - selata mainoksia kortteina ja suodattaa niitä tilan ja kampanjan mukaan (Suodata-ikkuna)
+   - esikatsella mainoksen kuvaa kortin Esikatselu-painikkeella
+   - lisätä ja muokata mainosta: lomakkeen "Esikatsele" näyttää mainoksen ennen tallennusta,
+     ja esikatselussa valitaan Hylkää / Palaa takaisin muokkaamaan / Hyväksy
+   - poistaa mainoksen muokkauslomakkeelta (vahvistuskysymyksen jälkeen)
    Tällä sivulla ei ole vain adminille rajattuja toimintoja.
 
    API:
    - GET    /api/creatives?campaign_id=  tai  ?unassigned=true   lista
    - POST   /api/creatives/upload        kuvan lataus (palauttaa url, width, height)
-   - POST   /api/creatives               uusi mainos
+   - POST   /api/creatives               uusi mainos ja sen sijoitukset
    - PUT    /api/creatives/{id}          päivitys
    - DELETE /api/creatives/{id}          poisto
-   - GET    /api/campaigns, /api/placements   suodatin, lomake ja sopivuuslaskenta
+   - GET    /api/advertisers, /api/campaigns, /api/placements   valintalistat
 
    Sivulle voi tulla linkillä creatives.html?campaign_id=5 (Kampanjat-sivulta),
-   jolloin suodatin on valmiiksi kyseisessä kampanjassa. */
+   jolloin kampanjasuodatin on valmiiksi päällä. */
 (() => {
   const grid = document.getElementById('creatives-grid');
   const countEl = document.getElementById('creatives-count');
-  const filter = document.getElementById('creatives-campaign-filter');
+  const filterBtn = document.getElementById('creatives-filter');
   let creatives = [];
+  let advertisers = [];
   let campaigns = [];
   let placements = [];
 
-  // Suodattimen erikoisarvo "Ilman kampanjaa". Tyhjä arvo tarkoittaa jo "kaikki mainokset",
-  // joten mainoksille ilman kampanjaa tarvitaan oma arvo; se muutetaan API:lle muotoon
-  // unassigned=true (ks. loadCreatives). 'none' ei voi sekoittua kampanjan numeeriseen id:hen.
-  const NO_CAMPAIGN = 'none';
-  const initialFilter = new URLSearchParams(window.location.search).get('campaign_id') || '';
+  // Mainosten tilat sivun omilla teksteillä (wireframe: "Tauolla").
+  const STATUS_LABELS = { active: 'Aktiivinen', paused: 'Tauolla', inactive: 'Ei aktiivinen' };
+  const statusPill = (status) => UI.pill(status, { paused: 'Tauolla' });
 
-  // Funktio eikä vakio: kampanjalista on käytettävissä vasta loadLookupsin jälkeen.
-  // campaign_id: tyhjä valinta -> null, eli mainos tallennetaan ilman kampanjaa.
-  // image_url: kuva ladataan heti valittaessa; leveys ja korkeus luetaan kuvasta
-  // (readonly), koska niitä käytetään mainospaikkojen sopivuuden laskemiseen.
-  const fields = () => [
-    { name: 'campaign_id', label: 'Kampanja', type: 'select', numeric: true, wide: true,
-      help: 'Valinnainen. Mainoksen voi liittää kampanjaan myöhemmin.',
-      options: [{ value: '', label: '– Ei kampanjaa –' },
-        ...campaigns.map((c) => ({ value: c.id, label: `${c.name} (${c.advertiser_name})` }))] },
-    { name: 'name', label: 'Mainoksen nimi', required: true, maxlength: 150, placeholder: 'Banneri A' },
-    { name: 'status', label: 'Tila', type: 'select', required: true,
-      options: [{ value: 'active', label: 'Aktiivinen' }, { value: 'inactive', label: 'Ei aktiivinen' }] },
-    { name: 'image_url', label: 'Mainoskuva', type: 'image', required: true,
-      help: 'JPG tai PNG, enintään 5 Mt.',
-      upload: (file) => Api.upload('/api/creatives/upload', file),
-      onUploaded: (img, form) => {
-        form.elements.width.value = img.width;
-        form.elements.height.value = img.height;
-        updateFit(form);
-      } },
-    { name: 'width', label: 'Leveys (px)', type: 'number', readonly: true, help: 'Luetaan kuvasta.' },
-    { name: 'height', label: 'Korkeus (px)', type: 'number', readonly: true, help: 'Luetaan kuvasta.' },
-    { name: 'target_url', label: 'Kohde-URL', type: 'url', required: true, wide: true,
-      placeholder: 'https://www.saashop.fi/', help: 'UTM-parametrit lisätään klikatessa automaattisesti.' },
-    { name: 'alt_text', label: 'ALT-teksti', maxlength: 200, wide: true, emptyValue: '',
-      placeholder: 'Lyhyt kuvaus mainoksesta (saavutettavuus)' },
-    { name: 'weight', label: 'Näyttöpaino (0–100)', type: 'number', required: true, min: 0, max: 100,
-      help: 'Suhteellinen osuus näytöistä. Sama paino kaikilla = tasajako. 0 = ei näytetä.' },
+  // Prioriteetin tasot kuten kampanjoissa: tallennetaan lukuna 0–100, suurempi voittaa.
+  const PRIORITIES = [
+    { value: 0, label: 'Matala' },
+    { value: 50, label: 'Normaali' },
+    { value: 100, label: 'Korkea' },
   ];
+  /** Vanha vapaa luku (esim. 10) -> lähin taso, jotta valikossa näkyy aina jokin valinta. */
+  const priorityLevel = (v) => (v >= 75 ? 100 : v >= 25 ? 50 : 0);
 
-  /* ---------- Koko vs. mainospaikkojen maksimikoko ----------
-     Mainospaikan width/height on suurin sallittu mainoskoko. Mainos näytetään vain paikoissa,
-     joihin se mahtuu (molemmat mitat <= paikan mitat). Jos mainos ei mahdu mihinkään
-     mahdolliseen paikkaan, sitä ei näytettäisi koskaan, joten tallennus estetään.
-     Palvelin tekee saman tarkistuksen (creatives.py, _prepare); tämä on käyttäjälle
-     välitön palaute jo lomakkeella. */
+  /* ---------- Suodatus ----------
+     Suodattimet ovat Suodata-ikkunassa. Kampanjasuodatus tehdään palvelimella
+     (campaign_id / unassigned), tilasuodatus selaimessa haetusta listasta. */
 
-  /** Mainospaikat, joihin mainos voi päätyä: kampanjan paikat tai ilman kampanjaa kaikki aktiiviset. */
-  const candidatePlacements = (campaignId) => {
-    if (!campaignId) return placements.filter((p) => p.status === 'active');
-    const campaign = campaigns.find((c) => c.id === Number(campaignId));
-    const ids = new Set((campaign?.placements || []).map((p) => p.id));
-    return placements.filter((p) => ids.has(p.id));
+  // Kampanjasuodattimen erikoisarvo "Ilman kampanjaa". Tyhjä arvo tarkoittaa "kaikki",
+  // joten kampanjattomille tarvitaan oma arvo; se muutetaan API:lle muotoon unassigned=true.
+  const NO_CAMPAIGN = 'none';
+  const filters = {
+    status: '',
+    campaign: new URLSearchParams(window.location.search).get('campaign_id') || '',
   };
+  const isFiltered = () => Boolean(filters.status || filters.campaign);
+
+  /** Suodata-painike: teksti "Suodatettu" ja korostus, kun jokin suodatin on päällä. */
+  const updateFilterButton = () => {
+    filterBtn.textContent = isFiltered() ? 'Suodatettu' : 'Suodata';
+    filterBtn.classList.toggle('is-filtered', isFiltered());
+  };
+
+  /** Valintalistan <option>-rivit; selected-arvo merkitään valituksi. */
+  const optionsHtml = (options, selected) => options.map((o) =>
+    `<option value="${UI.esc(o.value)}"${String(o.value) === String(selected) ? ' selected' : ''}>${UI.esc(o.label)}</option>`).join('');
+
+  /**
+   * Avaa Suodata-ikkunan (wireframe: Status + painikkeet Peruuta / Poista suodattimet / Hyväksy).
+   * Lisäksi kampanjavalinta, jotta Kampanjat-sivun "N mainosta →" -linkki toimii edelleen.
+   */
+  const openFilterDialog = async () => {
+    let chosen = null; // ikkunan kenttien arvot luetaan onDone-kutsussa ennen ikkunan poistoa
+    const action = await UI.choiceDialog({
+      title: 'Suodata',
+      html: `
+        <div class="form-grid">
+          <div class="field field-wide"><label for="filter-status">Status</label>
+            <select class="select" id="filter-status" name="status">${optionsHtml([
+              { value: '', label: 'Kaikki' },
+              ...Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label })),
+            ], filters.status)}</select>
+          </div>
+          <div class="field field-wide"><label for="filter-campaign">Kampanja</label>
+            <select class="select" id="filter-campaign" name="campaign">${optionsHtml([
+              { value: '', label: 'Kaikki' },
+              { value: NO_CAMPAIGN, label: 'Ilman kampanjaa' },
+              ...campaigns.map((c) => ({ value: c.id, label: c.name })),
+            ], filters.campaign)}</select>
+          </div>
+        </div>`,
+      buttons: [
+        { value: 'cancel', label: 'Peruuta' },
+        { value: 'clear', label: 'Poista suodattimet' },
+        { value: 'apply', label: 'Hyväksy', cls: 'btn-primary' },
+      ],
+      onDone: (value, dialog) => {
+        chosen = {
+          status: dialog.querySelector('[name="status"]').value,
+          campaign: dialog.querySelector('[name="campaign"]').value,
+        };
+      },
+    });
+    if (action === 'apply') Object.assign(filters, chosen);
+    else if (action === 'clear') Object.assign(filters, { status: '', campaign: '' });
+    else return; // Peruuta, × tai Esc: suodattimet ennallaan
+    updateFilterButton();
+    loadCreatives();
+  };
+
+  /* ---------- Mainospaikkojen valinta ----------
+     Paikka on valittavissa vain, jos se on aktiivinen, kuva mahtuu siihen (molemmat mitat
+     <= paikan mitat) ja, kun kampanja on valittu, se kuuluu kampanjan mainospaikkoihin.
+     Palvelin tekee samat tarkistukset (creatives.py, _prepare); tämä on käyttäjälle
+     välitön palaute jo lomakkeella. */
 
   /** Mahtuuko w × h -kokoinen mainos mainospaikkaan p. */
   const fits = (w, h, p) => w <= p.width && h <= p.height;
 
-  /**
-   * Laskee sopivuuden. Palauttaa { ok, html }. ok=false -> tallennus estetään.
-   * ok on true myös silloin, kun mittoja ei vielä tiedetä tai paikkoja ei ole:
-   * silloin ei ole mitään, mihin verrata, eikä tallennusta kannata estää.
-   * html = lista paikoista vihreällä/punaisella (fit-yes / fit-no) lomakkeeseen ja esikatseluun.
-   */
-  const fitReport = (w, h, campaignId) => {
-    const list = candidatePlacements(campaignId);
-    if (!w || !h) return { ok: true, html: '<span class="cell-muted">Lataa kuva nähdäksesi, mihin mainospaikkoihin mainos mahtuu.</span>' };
-    if (!list.length) {
-      return { ok: true, html: `<span class="cell-muted">${campaignId
-        ? 'Kampanjalla ei ole vielä mainospaikkoja.' : 'Aktiivisia mainospaikkoja ei ole.'}</span>` };
-    }
-    const okCount = list.filter((p) => fits(w, h, p)).length;
-    const rows = list.map((p) => `
-      <li class="${fits(w, h, p) ? 'fit-yes' : 'fit-no'}">
-        ${UI.esc(p.name)} <span>max ${p.width} × ${p.height}</span>
-      </li>`).join('');
-    const summary = okCount
-      ? `Mainos (${w} × ${h}) mahtuu ${okCount}/${list.length} ${campaignId ? 'kampanjan' : 'aktiivisesta'} mainospaikasta.`
-      : `Mainos (${w} × ${h}) on liian suuri ${campaignId ? 'kaikkiin kampanjan' : 'kaikkiin aktiivisiin'} mainospaikkoihin. Pienennä kuvaa${campaignId ? ' tai valitse toinen kampanja' : ''}.`;
-    return { ok: okCount > 0, html: `<p class="fit-summary${okCount ? '' : ' is-error'}">${summary}</p><ul class="fit-list">${rows}</ul>` };
+  /** Kampanjan sallittujen mainospaikkojen id:t (Set) tai null, jos kampanjaa ei ole valittu. */
+  const campaignPlacementIds = (campaignId) => {
+    const c = campaigns.find((x) => x.id === Number(campaignId));
+    return c ? new Set(c.placements.map((p) => p.id)) : null;
   };
 
-  // Lomakkeen "Sopivuus mainospaikkoihin" -laatikko. null, kun lomake ei ole auki.
-  let fitBox = null;
-
-  /** Päivittää sopivuuslaatikon lomakkeen nykyisillä mitoilla ja kampanjalla. */
-  const updateFit = (form) => {
-    if (!fitBox) return;
+  /**
+   * Päivittää mainospaikkavalinnan lomakkeen nykyisillä arvoilla (mitat ja kampanja).
+   * Sopimattomat paikat poistetaan käytöstä ja niiden ruksi poistetaan, jotta lomake ei
+   * lähetä paikkoja, joissa mainosta ei voisi näyttää. Syy näytetään paikan nimen perässä.
+   */
+  const updatePlacementPicker = (form) => {
     const w = Number(form.elements.width.value) || 0;
     const h = Number(form.elements.height.value) || 0;
-    fitBox.querySelector('.fit-body').innerHTML = fitReport(w, h, form.elements.campaign_id.value).html;
+    const allowed = campaignPlacementIds(form.elements.campaign_id.value);
+    form.querySelectorAll('input[name="placement_ids"]').forEach((input) => {
+      const p = placements.find((x) => x.id === Number(input.value));
+      const label = input.closest('.check');
+      let reason = '';
+      if (allowed && !allowed.has(p.id)) reason = 'ei kampanjan paikka';
+      else if (p.status !== 'active' && !input.checked) reason = 'ei aktiivinen';
+      else if (w && h && !fits(w, h, p)) reason = 'kuva on liian suuri';
+      input.disabled = Boolean(reason);
+      if (reason) input.checked = false;
+      label.classList.toggle('is-disabled', Boolean(reason));
+      let note = label.querySelector('.check-note');
+      if (!note) {
+        note = document.createElement('small');
+        note.className = 'check-note';
+        label.append(note);
+      }
+      note.textContent = reason ? ` – ${reason}` : '';
+    });
+  };
+
+  /* ---------- Lomake ---------- */
+
+  /** Kampanjavalinnan vaihtoehdot: valitun mainostajan kampanjat (kampanja on valinnainen). */
+  const campaignOptions = (advertiserId) => [
+    { value: '', label: '– Ei kampanjaa –' },
+    ...campaigns
+      .filter((c) => !advertiserId || c.advertiser_id === Number(advertiserId))
+      .map((c) => ({ value: c.id, label: c.name })),
+  ];
+
+  // Funktio eikä vakio: valintalistat ovat käytettävissä vasta loadLookupsin jälkeen.
+  // Kentät jakautuvat kahteen osaan: mainoksen tiedot (mainostaja, nimi, kuva, linkki)
+  // ja sijoitusten yhteiset asetukset (kampanja, mainospaikat, paino, prioriteetti, aikataulu).
+  const fields = (advertiserId) => [
+    { name: 'name', label: 'Mainoksen nimi', required: true, maxlength: 150, placeholder: 'Banneri A' },
+    { name: 'advertiser_id', label: 'Mainostaja', type: 'select', numeric: true, required: true,
+      options: [{ value: '', label: '– Valitse –' },
+        ...advertisers.map((a) => ({ value: a.id, label: a.name }))] },
+    { name: 'campaign_id', label: 'Kampanja', type: 'select', numeric: true,
+      tooltip: 'Valinnainen. Kampanjan tila ja aikataulu rajaavat silloin näkymistä, ja mainoksen '
+        + 'voi sijoittaa vain kampanjan mainospaikkoihin.',
+      options: campaignOptions(advertiserId) },
+    { name: 'status', label: 'Status', type: 'select', required: true,
+      options: Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label })) },
+    { name: 'image_url', label: 'Mainoskuva', type: 'image', required: true, wide: true,
+      help: 'Lataa JPG tai PNG (enintään 5 Mt) tai anna mainoskuvan URL.',
+      upload: (file) => Api.upload('/api/creatives/upload', file),
+      onUploaded: (img, form) => {
+        form.elements.width.value = img.width;
+        form.elements.height.value = img.height;
+        updatePlacementPicker(form);
+      } },
+    { name: 'width', label: 'Leveys (px)', type: 'number', readonly: true, help: 'Luetaan kuvasta.' },
+    { name: 'height', label: 'Korkeus (px)', type: 'number', readonly: true, help: 'Luetaan kuvasta.' },
+    { name: 'target_url', label: 'Target URL', type: 'url', required: true, wide: true,
+      placeholder: 'https://www.saashop.fi/',
+      tooltip: 'Sivu, jolle mainoksen klikkaus vie. UTM-parametrit lisätään klikatessa automaattisesti.' },
+    // Vaihtoehdoiksi kaikki mainospaikat; updatePlacementPicker poistaa käytöstä sopimattomat.
+    { name: 'placement_ids', label: 'Mainospaikat *', type: 'checkboxes',
+      tooltip: 'Valitse vähintään yksi. Jokaisesta paikasta tulee sijoitus. Kuva skaalataan '
+        + 'näytettäessä mainospaikan kokoon.',
+      options: placements.map((p) => ({ value: p.id, label: `${p.name} (max ${p.width} × ${p.height})` })) },
+    { name: 'weight', label: 'Paino (0–100)', type: 'number', required: true, min: 0, max: 100,
+      tooltip: 'Suhteellinen osuus näytöistä samassa paikassa saman prioriteetin mainosten kesken. 0 = ei näytetä.' },
+    { name: 'priority', label: 'Prioriteetti', type: 'select', numeric: true, required: true,
+      tooltip: 'Kun samaan mainospaikkaan osuu useita mainoksia, korkeamman prioriteetin mainos näytetään ensin.',
+      options: PRIORITIES.map((p) => ({ value: p.value, label: p.label })) },
+    { name: 'start_date', label: 'Näkyy alkaen', type: 'date', help: 'Tyhjä = heti.' },
+    { name: 'end_date', label: 'Näkyy asti', type: 'date', help: 'Tyhjä = toistaiseksi.' },
+    { name: 'alt_text', label: 'ALT-teksti', maxlength: 200, wide: true, emptyValue: '',
+      placeholder: 'Lyhyt kuvaus mainoksesta (saavutettavuus)' },
+  ];
+
+  /** Täyttää kampanjavalinnan valitun mainostajan kampanjoilla (valinta säilyy, jos mahdollista). */
+  const updateCampaignSelect = (form) => {
+    const select = form.elements.campaign_id;
+    const current = select.value;
+    const options = campaignOptions(form.elements.advertiser_id.value);
+    select.innerHTML = optionsHtml(options, current);
+    select.value = options.some((o) => String(o.value) === current) ? current : '';
+  };
+
+  /** Lomakkeen yläosan tunnisteet (wireframe): Mainoksen numero ja Mainostajan numero. */
+  const idsHtml = (creative, advertiserId) => `
+    <div class="form-ids">
+      <span class="form-id">Mainoksen numero <strong>${creative ? `#${creative.id}` : 'uusi'}</strong></span>
+      <span class="form-id">Mainostajan numero <strong data-advertiser-no>${advertiserId ? `#${advertiserId}` : '–'}</strong></span>
+    </div>`;
+
+  /**
+   * UI.openForm kutsuu tätä (onRender), kun lomake on piirretty.
+   * - Mainostajan vaihto rajaa kampanjavalinnan ja päivittää mainostajan numeron.
+   * - Kampanjan valinta ehdottaa kampanjan prioriteettia ja rajaa mainospaikat.
+   */
+  const attachFormLogic = (form) => {
+    const advNo = form.closest('dialog').querySelector('[data-advertiser-no]');
+    form.elements.advertiser_id.addEventListener('change', () => {
+      const id = form.elements.advertiser_id.value;
+      advNo.textContent = id ? `#${id}` : '–';
+      updateCampaignSelect(form);
+      updatePlacementPicker(form);
+    });
+    form.elements.campaign_id.addEventListener('change', () => {
+      const c = campaigns.find((x) => x.id === Number(form.elements.campaign_id.value));
+      if (c) form.elements.priority.value = priorityLevel(c.priority);
+      updatePlacementPicker(form);
+    });
+    // URL:lla annetun kuvan mitat luetaan myös (ui.js kutsuu onUploaded); varmistus tähän
+    form.elements.width.addEventListener('change', () => updatePlacementPicker(form));
+    updatePlacementPicker(form);
+  };
+
+  /** Listan mainos -> lomakkeen arvot (sijoitusten paikat ja päivät lomakkeen muotoon). */
+  const toFormValues = (c) => ({
+    ...c,
+    placement_ids: c.placements.map((p) => p.id),
+    weight: c.weight ?? 1,
+    priority: priorityLevel(c.priority ?? 0),
+    start_date: UI.isoToDateInput(c.start_time),
+    end_date: UI.isoToDateInput(c.end_time),
+  });
+
+  /**
+   * Esikatselu ennen tallennusta (wireframe "Esikatselu").
+   * Palauttaa 'ok' (Hyväksy), 'discard' (Hylkää) tai 'back' (Palaa takaisin muokkaamaan,
+   * myös × ja Esc).
+   */
+  const previewBeforeSave = async (data) => {
+    const chosen = placements.filter((p) => data.placement_ids.includes(p.id));
+    const campaign = campaigns.find((c) => c.id === data.campaign_id);
+    const value = await UI.choiceDialog({
+      title: 'Esikatselu',
+      wide: true,
+      html: `
+        <div class="preview-stage">
+          <img src="${UI.esc(data.image_url)}" alt="${UI.esc(data.alt_text)}">
+        </div>
+        <div class="preview-meta">
+          <strong>${UI.esc(data.name)}</strong>
+          ${data.width && data.height ? ` · ${data.width} × ${data.height} px` : ''}
+          · ${campaign ? UI.esc(campaign.name) : 'ei kampanjaa'}<br>
+          Target URL: ${UI.esc(data.target_url)}<br>
+          Mainospaikat: ${chosen.map((p) => UI.esc(p.name)).join(', ')}
+        </div>`,
+      buttons: [
+        { value: 'discard', label: 'Hylkää' },
+        { value: 'back', label: 'Palaa takaisin muokkaamaan' },
+        { value: 'ok', label: 'Hyväksy', cls: 'btn-primary' },
+      ],
+    });
+    return value || 'back';
   };
 
   /**
-   * UI.openForm kutsuu tätä (onRender), kun lomake on piirretty. Lisää sopivuuslaatikon
-   * korkeuskentän perään ja päivittää sen aina, kun kampanjavalinta vaihtuu, koska
-   * kampanja määrää, mihin mainospaikkoihin mainos voi päätyä.
+   * Avaa "Uusi mainos"- tai "Muokkaa mainosta" -lomakkeen. creative = null -> uusi mainos.
+   * Uusi mainos liitetään oletuksena suodattimessa valittuun kampanjaan (jos sellainen on).
+   * Lomakkeen pääpainike on "Esikatsele": tallennus tehdään vasta esikatselun Hyväksy-painikkeesta.
    */
-  const attachFitPanel = (form) => {
-    fitBox = document.createElement('div');
-    fitBox.className = 'field field-wide fit-panel';
-    fitBox.innerHTML = '<span class="field-label">Sopivuus mainospaikkoihin</span><div class="fit-body"></div>';
-    form.elements.height.closest('.field').after(fitBox);
-    form.elements.campaign_id.addEventListener('change', () => updateFit(form));
-    updateFit(form);
+  const openEditor = (creative) => {
+    const isNew = !creative;
+    const camp = campaigns.find((c) => String(c.id) === filters.campaign);
+    const values = creative ? toFormValues(creative) : {
+      status: 'active', weight: 1, priority: camp ? priorityLevel(camp.priority) : 0, placement_ids: [],
+      advertiser_id: camp ? camp.advertiser_id : '', campaign_id: camp ? camp.id : '',
+    };
+    UI.openForm({
+      title: isNew ? 'Uusi mainos' : 'Muokkaa mainosta',
+      headerHtml: idsHtml(creative, values.advertiser_id),
+      fields: fields(values.advertiser_id),
+      values,
+      submitLabel: 'Esikatsele',
+      busyLabel: 'Esikatselu…',
+      onRender: attachFormLogic,
+      onSubmit: async (data) => {
+        // Mainospaikka on pakollinen. Heitetty virhe näytetään lomakkeella (UI.openForm),
+        // eikä lomake sulkeudu. Käytöstä poistetut (sopimattomat) paikat eivät ole valittuina.
+        if (!data.placement_ids.length) throw new Error('Valitse vähintään yksi mainospaikka.');
+
+        const choice = await previewBeforeSave(data);
+        if (choice === 'back') return false;  // lomake jää auki, tiedot säilyvät
+        if (choice === 'discard') return;     // lomake suljetaan tallentamatta
+
+        // Hyväksy: päivät -> aikaleimat (alku klo 00:00, loppu klo 23:59:59) ja tallennus
+        const { start_date, end_date, ...rest } = data;
+        const body = {
+          ...rest,
+          start_time: UI.dateInputToIso(start_date),
+          end_time: UI.dateInputToIso(end_date, true),
+        };
+        if (isNew) await Api.post('/api/creatives', body);
+        else await Api.put(`/api/creatives/${creative.id}`, body);
+        UI.toast(isNew ? 'Mainos lisätty.' : 'Mainos päivitetty.');
+        loadCreatives();
+      },
+      deleteLabel: 'Poista mainos',
+      deleteConfirm: 'Haluatko varmasti poistaa mainoksen?',
+      deleteConfirmLabel: 'Kyllä',
+      onDelete: isNew ? null : async () => {
+        await Api.del(`/api/creatives/${creative.id}`);
+        UI.toast('Mainos poistettu.');
+        loadCreatives();
+      },
+    });
+  };
+
+  /** Kortin Esikatselu: pelkkä mainoskuva (linkkinä kohdesivulle) isona. */
+  const openPreview = (c) => {
+    UI.openInfo(c.name, `
+      <div class="preview-stage">
+        <a href="${UI.esc(c.target_url)}" target="_blank" rel="noopener">
+          <img src="${UI.esc(c.image_url)}" alt="${UI.esc(c.alt_text)}">
+        </a>
+      </div>
+      <div class="preview-meta">${c.width && c.height ? `${c.width} × ${c.height} px · ` : ''}${
+        c.placements.length ? `Mainospaikat: ${c.placements.map((p) => UI.esc(p.name)).join(', ')}`
+          : 'Ei mainospaikkoja'}</div>`);
   };
 
   /* ---------- Listaus ---------- */
@@ -135,45 +366,50 @@
     ? `<img src="${UI.esc(c.image_url)}" alt="${UI.esc(c.alt_text)}" loading="lazy">`
     : `${c.width || '?'} × ${c.height || '?'}`;
 
-  /** Piirtää mainoskortit. Tyhjän tilan teksti kertoo, mikä suodatin on päällä. */
+  /** Piirtää mainoskortit (wireframe: kuva, Mainos #, nimi, Target URL, paino, status). */
   const render = () => {
-    countEl.textContent = `Mainokset (${creatives.length})`;
-    if (!creatives.length) {
-      const where = filter.value === NO_CAMPAIGN ? ' ilman kampanjaa' : filter.value ? ' tässä kampanjassa' : '';
+    const shown = filters.status ? creatives.filter((c) => c.status === filters.status) : creatives;
+    countEl.textContent = `Mainokset (${shown.length})`;
+    if (!shown.length) {
       grid.innerHTML = `
         <div class="empty-state" style="grid-column:1/-1">
           <span class="plus-badge">+</span>
-          <span>Ei mainoksia${where}. Lisää mainos yläkulman painikkeesta.</span>
+          <span>${isFiltered() ? 'Ei suodattimia vastaavia mainoksia.' : 'Ei mainoksia.'}
+            Lisää mainos yläkulman painikkeesta.</span>
         </div>`;
       return;
     }
-    grid.innerHTML = creatives.map((c) => `
+    grid.innerHTML = shown.map((c) => `
       <div class="creative-card">
         <div class="creative-thumb">${thumb(c)}</div>
         <div class="creative-body">
+          <p class="creative-number">Mainos #${c.id}</p>
           <h3>${UI.esc(c.name)}</h3>
-          <p class="creative-meta">${c.campaign_id
-            ? `${UI.esc(c.campaign_name)} · ${UI.esc(c.advertiser_name)}`
-            : '<span class="no-campaign">Ei kampanjaa</span>'}</p>
-          <p class="creative-meta">${c.width && c.height ? `${c.width} × ${c.height} · ` : ''}paino ${c.weight}</p>
+          <p class="creative-meta">${UI.esc(c.advertiser_name)} · ${c.campaign_id
+            ? UI.esc(c.campaign_name) : 'ei kampanjaa'}</p>
+          <p class="creative-meta">Target URL:
+            <a class="creative-url" href="${UI.esc(c.target_url)}" target="_blank" rel="noopener">${UI.esc(c.target_url)}</a></p>
+          <p class="creative-meta">${c.placements.length
+            ? `Paino ${c.weight} · ${c.placements.map((p) => UI.esc(p.name)).join(', ')}`
+            : '<span class="no-campaign">Ei mainospaikkoja – valitse muokkaamalla</span>'}</p>
           <div class="creative-footer">
-            ${UI.pill(c.status)}
+            ${statusPill(c.status)}
             <span>
-              <button class="btn-ghost" data-preview="${c.id}">Esikatsele</button>
-              <button class="btn-ghost" data-edit="${c.id}">Muokkaa</button>
+              <button class="btn btn-small" data-preview="${c.id}">Esikatselu</button>
+              <button class="btn btn-small" data-edit="${c.id}">Muokkaa</button>
             </span>
           </div>
         </div>
       </div>`).join('');
   };
 
-  /** Hakee mainokset suodattimen mukaan ja piirtää ruudukon. */
+  /** Hakee mainokset kampanjasuodattimen mukaan ja piirtää ruudukon. */
   const loadCreatives = async () => {
     grid.innerHTML = '<p class="table-message">Ladataan…</p>';
     try {
       // NO_CAMPAIGN -> unassigned=true (vain kampanjattomat). Muuten campaign_id; tyhjä arvo
       // jätetään kyselystä pois (Api.get), jolloin palvelin palauttaa kaikki mainokset.
-      const query = filter.value === NO_CAMPAIGN ? { unassigned: true } : { campaign_id: filter.value };
+      const query = filters.campaign === NO_CAMPAIGN ? { unassigned: true } : { campaign_id: filters.campaign };
       creatives = await Api.get('/api/creatives', query);
       render();
     } catch (err) {
@@ -181,69 +417,10 @@
     }
   };
 
-  /**
-   * Hakee kampanjat ja mainospaikat rinnakkain, täyttää suodattimen ja asettaa
-   * URL:n ?campaign_id=-arvon valituksi (asetetaan vasta kun vaihtoehdot ovat olemassa).
-   */
+  /** Hakee mainostajat, kampanjat ja mainospaikat rinnakkain (lomake ja suodatin tarvitsevat ne). */
   const loadLookups = async () => {
-    [campaigns, placements] = await Promise.all([Api.get('/api/campaigns'), Api.get('/api/placements')]);
-    filter.innerHTML = '<option value="">Kaikki mainokset</option>' +
-      `<option value="${NO_CAMPAIGN}">Ilman kampanjaa</option>` +
-      campaigns.map((c) => `<option value="${c.id}">${UI.esc(c.name)}</option>`).join('');
-    filter.value = initialFilter;
-  };
-
-  /* ---------- Lomake ---------- */
-
-  /**
-   * Avaa luonti-/muokkauslomakkeen. creative = null -> uusi mainos.
-   * Uusi mainos liitetään oletuksena suodattimessa valittuun kampanjaan (jos sellainen on).
-   */
-  const openEditor = (creative) => {
-    const isNew = !creative;
-    const defaultCampaign = filter.value && filter.value !== NO_CAMPAIGN ? filter.value : '';
-    UI.openForm({
-      title: isNew ? 'Uusi mainos' : `Muokkaa: ${creative.name}`,
-      fields: fields(),
-      values: creative || { status: 'active', weight: 1, campaign_id: defaultCampaign },
-      submitLabel: isNew ? 'Lisää mainos' : 'Tallenna',
-      onRender: attachFitPanel,
-      onSubmit: async (data) => {
-        // Estetään tallennus jo selaimessa, jos mainos ei mahdu mihinkään mahdolliseen paikkaan.
-        // Heitetty virhe näytetään lomakkeella (UI.openForm), eikä lomake sulkeudu.
-        const fit = fitReport(data.width, data.height, data.campaign_id);
-        if (!fit.ok) throw new Error('Mainos on liian suuri kaikkiin mahdollisiin mainospaikkoihin.');
-        if (isNew) await Api.post('/api/creatives', data);
-        else await Api.put(`/api/creatives/${creative.id}`, data);
-        UI.toast(isNew ? 'Mainos lisätty.' : 'Muutokset tallennettu.');
-        loadCreatives();
-      },
-      onDelete: isNew ? null : async () => {
-        await Api.del(`/api/creatives/${creative.id}`);
-        UI.toast('Mainos poistettu.');
-        loadCreatives();
-      },
-    });
-  };
-
-  /** Esikatseluikkuna: kuva linkkinä kohde-URL:iin, tiedot ja sopivuus mainospaikkoihin. */
-  const openPreview = (c) => {
-    const w = c.width; const h = c.height;
-    const fit = fitReport(w, h, c.campaign_id);
-    UI.openInfo(c.name, `
-      <div class="preview-frame">
-        <a href="${UI.esc(c.target_url)}" target="_blank" rel="noopener">
-          <img src="${UI.esc(c.image_url)}" alt="${UI.esc(c.alt_text)}">
-        </a>
-      </div>
-      <dl class="detail-list">
-        <dt>Kampanja</dt><dd>${c.campaign_id ? UI.esc(c.campaign_name) : 'Ei kampanjaa'}</dd>
-        <dt>Kohde-URL</dt><dd><a href="${UI.esc(c.target_url)}" target="_blank" rel="noopener">${UI.esc(c.target_url)}</a></dd>
-        <dt>ALT-teksti</dt><dd>${UI.esc(c.alt_text || '–')}</dd>
-        <dt>Koko</dt><dd>${w && h ? `${w} × ${h} px` : '–'}</dd>
-        <dt>Näyttöpaino</dt><dd>${c.weight}</dd>
-        <dt>Mainospaikat</dt><dd class="fit-panel">${fit.html}</dd>
-      </dl>`);
+    [advertisers, campaigns, placements] = await Promise.all([
+      Api.get('/api/advertisers'), Api.get('/api/campaigns'), Api.get('/api/placements')]);
   };
 
   // Event delegation: kortit piirretään uudelleen joka latauksessa, joten kuunnellaan ruudukkoa.
@@ -253,11 +430,12 @@
     if (edit) openEditor(creatives.find((c) => c.id === Number(edit.dataset.edit)));
     if (prev) openPreview(creatives.find((c) => c.id === Number(prev.dataset.preview)));
   });
-  filter.addEventListener('change', loadCreatives);
+  filterBtn.addEventListener('click', openFilterDialog);
   document.getElementById('new-creative').addEventListener('click', () => openEditor(null));
 
-  // Ensin valintalistat (suodatin pitää asettaa ennen hakua), sitten mainokset.
-  // finally: mainokset ladataan, vaikka valintalistojen haku epäonnistuisi.
+  // Ensin valintalistat, sitten mainokset. finally: mainokset ladataan,
+  // vaikka valintalistojen haku epäonnistuisi.
+  updateFilterButton();
   loadLookups()
     .catch((err) => UI.toast(err.message, 'error'))
     .finally(loadCreatives);

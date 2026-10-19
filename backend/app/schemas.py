@@ -17,6 +17,8 @@ from pydantic import BaseModel, Field, model_validator
 
 # Literal = kenttä hyväksyy vain luetellut arvot (vastaa kannan CHECK-ehtoja).
 ActiveStatus = Literal["active", "inactive"]
+AdvertiserStatus = Literal["active", "inactive", "suspended"]   # suspended = keskeytetty
+PausableStatus = Literal["active", "inactive", "paused"]        # mainospaikka ja mainos
 CampaignStatus = Literal["draft", "active", "paused", "archived"]
 
 
@@ -26,7 +28,7 @@ class AdvertiserIn(BaseModel):
     # pattern ^https?:// sallii vain http(s)-osoitteet (ei esim. javascript:-linkkejä).
     name: str = Field(min_length=1, max_length=100)
     website_url: str | None = Field(default=None, pattern=r"^https?://")
-    status: ActiveStatus = "active"
+    status: AdvertiserStatus = "active"
 
 
 class PlacementIn(BaseModel):
@@ -40,16 +42,17 @@ class PlacementIn(BaseModel):
     environment: str = Field(min_length=1, max_length=100)
     width: int = Field(gt=0, le=5000)
     height: int = Field(gt=0, le=5000)
-    status: ActiveStatus = "active"
+    status: PausableStatus = "active"
     notes: str | None = None
 
 
 class CampaignIn(BaseModel):
     """Kampanjan luonti/muokkaus.
 
-    priority: suurempi luku = etusijalla mainosta valittaessa.
-    placement_ids: mainospaikat, joissa kampanjan mainokset näytetään
-    (tallennetaan erilliseen liitostauluun routers/campaigns.py:ssä).
+    priority: suurempi luku = etusijalla mainosta valittaessa (oletus uusille
+    kampanjan sijoituksille). Paneelissa valinnat Matala 0 / Normaali 50 / Korkea 100.
+    placement_ids: kampanjan sallitut mainospaikat (taulu campaign_placements).
+    Kampanjan mainokset voi sijoittaa vain näihin paikkoihin.
     """
 
     advertiser_id: int
@@ -83,13 +86,19 @@ class CampaignStatusIn(BaseModel):
 
 
 class CreativeIn(BaseModel):
-    """Mainoksen (kuva + linkki) luonti/muokkaus.
+    """Mainoksen (kuva + linkki) ja sen sijoitusten luonti/muokkaus.
 
+    Mainos kuuluu mainostajalle (advertiser_id, pakollinen). Kampanja on valinnainen.
     Kuva ladataan ensin erikseen (media.py), ja tähän tulee sen /media/-osoite.
-    weight: painoarvo, kun samassa paikassa on useita mainoksia (0 = ei näytetä).
+
+    Sijoitukset (placings): jokaisesta valitusta mainospaikasta (placement_ids, vähintään
+    yksi) tehdään sijoitus, jolla on samat weight, priority, start_time, end_time ja
+    campaign_id. Tarkistukset ovat routers/creatives.py:n _prepare-funktiossa, jotta
+    virheviestit ovat suomeksi.
     """
 
-    campaign_id: int | None = Field(default=None, description="Valinnainen – mainos voi olla ilman kampanjaa")
+    advertiser_id: int
+    campaign_id: int | None = Field(default=None, description="Valinnainen kampanja")
     name: str = Field(min_length=1, max_length=150)
     image_url: str = Field(min_length=1, pattern=r"^(https?://|/media/)",
                            description="Ladattu kuva (/media/...) tai ulkoinen URL")
@@ -98,5 +107,18 @@ class CreativeIn(BaseModel):
     # Ladatun kuvan (/media/...) mitat luetaan aina tiedostosta palvelimella.
     width: int | None = Field(default=None, gt=0)
     height: int | None = Field(default=None, gt=0)
-    weight: int = Field(default=1, ge=0, le=100)
-    status: ActiveStatus = "active"
+    status: PausableStatus = "active"
+    # --- sijoitusten yhteiset asetukset ---
+    placement_ids: list[int] = Field(default_factory=list,
+                                     description="Mainospaikkojen id:t, joissa mainos näytetään")
+    weight: int = Field(default=1, ge=0, le=100, description="Painoarvo (0 = ei näytetä)")
+    priority: int = Field(default=0, ge=0, le=100, description="Suurempi voittaa samassa paikassa")
+    start_time: datetime | None = Field(default=None, description="Tyhjä = heti")
+    end_time: datetime | None = Field(default=None, description="Tyhjä = toistaiseksi")
+
+    @model_validator(mode="after")
+    def check_dates(self):
+        """Sijoituksen päättymisajan on oltava alkamisajan jälkeen."""
+        if self.start_time and self.end_time and self.end_time <= self.start_time:
+            raise ValueError("Päättymisajan on oltava alkamisajan jälkeen.")
+        return self

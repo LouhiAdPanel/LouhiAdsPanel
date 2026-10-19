@@ -959,3 +959,133 @@ body:not(.role-admin) .admin-only { display: none !important; }
    (palkki itse on sticky ja 100vh korkea). */
 .app { background: linear-gradient(to right, #E8E9EB var(--sidebar-width), #FFFFFF var(--sidebar-width)); }
 @media (max-width: 760px) { .app { background: #FFFFFF; } }
+
+/* Mainoksen mainospaikkavalinta: paikat, joita ei voi valita (ei kampanjan paikka tai kuva
+   liian suuri), näytetään himmennettyinä syyn kanssa. */
+.check.is-disabled { color: var(--stone-400); cursor: not-allowed; }
+/* Syyrivi paikan nimen alle: ruudukko pitää pitkänkin nimen ruudun vieressä */
+.check:has(.check-note:not(:empty)) { display: grid; grid-template-columns: 15px 1fr; column-gap: 8px; align-items: start; }
+.check:has(.check-note:not(:empty)) input { margin-top: 2px; }
+.check-note { grid-column: 2; font-size: 12px; color: var(--stone-400); }
+.check-note:empty { display: none; }
+
+/* ---------- 12. Wireframe-päivitys: ohjeet, monivalinta, pienet ikkunat ---------- */
+
+/* ?-ohje kentän otsikon perässä: teksti näkyy hiiren alla tai näppäimistöfokuksessa */
+.help-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--stone-200);
+  color: var(--ink-600);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: help;
+  vertical-align: middle;
+}
+.help-tip:hover, .help-tip:focus { background: #F9971C; color: #FFFFFF; outline: none; }
+.help-tip:hover::after, .help-tip:focus::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: #1A1A1A;
+  color: #FFFFFF;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: normal;
+  z-index: 10;
+}
+
+/* Monivalinta pudotusvalikkona (<details>) */
+.multiselect { position: relative; margin-top: 5px; }
+.multiselect > summary {
+  list-style: none;
+  cursor: pointer;
+  width: 100%;
+  font-size: 14px;
+  padding-right: 32px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.multiselect > summary::-webkit-details-marker { display: none; }
+.multiselect > summary::after {
+  content: '▾';
+  position: absolute;
+  right: 12px;
+  top: 9px;
+  color: var(--ink-600);
+}
+.multiselect[open] > summary { border-color: var(--azurite-500); }
+.multiselect .check-group { margin-top: 4px; background: var(--stone-100); }
+
+/* Pienet ikkunat (vahvistus, valinta) */
+.modal.modal-small { width: min(440px, calc(100vw - 32px)); }
+.modal-small .modal-body p { font-size: 14.5px; line-height: 1.5; }
+
+/* Pienet reunalliset painikkeet taulukon Toiminnot-sarakkeessa */
+.btn-small {
+  padding: 5px 12px;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  background: var(--stone-100);
+  color: var(--ink-900);
+  border: 1px solid var(--stone-300);
+  font-weight: 600;
+}
+.btn-small:hover { border-color: #F9971C; color: #C97800; }
+.btn-small.btn-small-danger:hover { border-color: var(--brick-600); color: var(--brick-600); }
+.cell-actions .btn-small + .btn-small { margin-left: 6px; }
+
+/* Lomakkeen yläosan tunnistetiedot (esim. mainoksen ja mainostajan numero) */
+.form-ids { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.form-id {
+  display: inline-flex;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--stone-300);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--ink-600);
+}
+.form-id strong { color: var(--ink-900); }
+
+/* Mainoksen esikatselu ennen tallennusta */
+.preview-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  padding: 16px;
+  background: var(--stone-50);
+  border: 1px solid var(--stone-200);
+  border-radius: var(--radius-sm);
+}
+.preview-stage img { max-width: 100%; max-height: 60vh; object-fit: contain; }
+.preview-meta { margin-top: 12px; font-size: 13px; color: var(--ink-600); }
+
+/* Suodata-painike, kun suodatin on päällä */
+.btn.is-filtered { border-color: #F9971C; color: #C97800; }
+
+/* Mainoskortin rivit (numero, kohde-URL) */
+.creative-number { font-size: 12px; color: var(--ink-600); font-weight: 600; margin-bottom: 2px; }
+.creative-url { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.image-url-input { margin-top: 4px; font-size: 13px; padding: 6px 10px; min-width: 0; width: 100%; }
+
+/* Mainoskortin alaosa (wireframe): tila omalla rivillään, Esikatselu ja Muokkaa
+   tasaleveinä painikkeina sen alla, jotta ne mahtuvat kapeaankin korttiin. */
+.creative-footer { flex-wrap: wrap; gap: 10px; }
+.creative-footer > span:last-child { flex: 1 1 100%; }
+.creative-footer > span:last-child .btn { flex: 1; }

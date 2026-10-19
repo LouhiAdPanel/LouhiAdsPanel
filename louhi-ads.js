@@ -40,7 +40,7 @@
    * palauttamat arvot (esim. alt_text) eivät voi koskaan muuttua HTML:ksi (XSS-esto).
    * @param {HTMLElement} el  .louhi-ad-elementti
    * @param {object} ad       palvelimen vastaus: click_url, image_url, alt_text,
-   *                          width, height, creative_id
+   *                          width, height, placement_width, placement_height, creative_id
    */
   function render(el, ad) {
     var link = document.createElement('a');
@@ -50,19 +50,38 @@
     // sponsored: kertoo hakukoneille, että linkki on maksettu mainos.
     // noopener: avattu sivu ei pääse käsiksi isäntäsivuun (window.opener).
     link.rel = 'sponsored noopener';
-    link.style.display = 'inline-block';
     link.style.lineHeight = '0'; // poistaa kuvan alle jäävän ylimääräisen raon
 
     var img = document.createElement('img');
     img.src = ad.image_url;
     img.alt = ad.alt_text || '';
-    if (ad.width) img.width = ad.width;
-    if (ad.height) img.height = ad.height;
-    // Leveys/korkeus varaavat tilan etukäteen (sivu ei hypi kuvan latautuessa),
-    // maxWidth + height:auto skaalaavat kuvan kapeaan paikkaan mittasuhteet säilyttäen
-    img.style.maxWidth = '100%';
-    img.style.height = 'auto';
     img.style.border = '0';
+
+    var pw = ad.placement_width, ph = ad.placement_height;
+    if (pw && ph) {
+      // Skaalaus mainospaikan kokoon: linkki on täsmälleen paikan kokoinen laatikko
+      // (kapealla näytöllä enintään 100 % leveä, mittasuhde säilyy aspect-ratiolla),
+      // ja kuva täyttää sen mittasuhteet säilyttäen (object-fit: contain).
+      // Pienempi kuva suurennetaan ja kuva keskitetään; reunoille voi jäädä tyhjää,
+      // jos kuvan ja paikan mittasuhteet eroavat.
+      link.style.display = 'flex';
+      link.style.alignItems = 'center';
+      link.style.justifyContent = 'center';
+      link.style.width = pw + 'px';
+      link.style.maxWidth = '100%';
+      link.style.aspectRatio = pw + ' / ' + ph;
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'contain';
+    } else {
+      // Vanha tapa (paikan kokoa ei tiedetä): kuva omassa koossaan, kavennetaan tarvittaessa.
+      // Leveys/korkeus varaavat tilan etukäteen, jotta sivu ei hypi kuvan latautuessa.
+      link.style.display = 'inline-block';
+      if (ad.width) img.width = ad.width;
+      if (ad.height) img.height = ad.height;
+      img.style.maxWidth = '100%';
+      img.style.height = 'auto';
+    }
 
     link.appendChild(img);
     el.innerHTML = '';

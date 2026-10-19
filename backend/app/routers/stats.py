@@ -9,7 +9,9 @@ Oikeudet: kaikki kirjautuneet (main.py lisää kirjautumisvaatimuksen).
 
 Liittyy: luvut lasketaan serving.py:n kirjaamista näytöistä (impressions) ja klikeistä
 (clicks) näkymän v_daily_stats kautta (schema.sql), joka summaa ne päivittäin
-(Suomen aika) kampanjan, mainoksen ja mainospaikan mukaan. CTR = klikit / näytöt * 100.
+(Suomen aika) sijoituksittain; sijoituksesta saadaan mainostaja, mainos, kampanja ja
+mainospaikka. Kampanja voi puuttua (mainos ilman kampanjaa) -> raportissa
+"(ei kampanjaa)". CTR = klikit / näytöt * 100.
 Frontendissä dashboard.html (js/dashboard.js) ja reporting.html (js/reporting.js).
 """
 import csv
@@ -40,14 +42,17 @@ FROM v_daily_stats
 WHERE day = (now() AT TIME ZONE 'Europe/Helsinki')::date
 """
 
+# Nimi kampanjattomille riveille (sijoitus ilman kampanjaa)
+NO_CAMPAIGN = "(ei kampanjaa)"
+
 # Ryhmittelyvaihtoehdot. Avaimet tulevat whitelististä, ei suoraan käyttäjältä SQL:ään.
 # Arvo = (GROUP BY -osa, SELECT-osa). Ryhmittelyssä on mukana id, jotta samannimiset
 # kampanjat/mainokset eivät yhdisty yhdeksi riviksi.
 GROUPINGS = {
     "campaign":  ("c.id, c.name, a.name",
-                  "c.name AS campaign, a.name AS advertiser"),
-    "creative":  ("cr.id, cr.name, c.name",
-                  "cr.name AS creative, c.name AS campaign"),
+                  f"COALESCE(c.name, '{NO_CAMPAIGN}') AS campaign, a.name AS advertiser"),
+    "creative":  ("cr.id, cr.name, a.name, c.name",
+                  f"cr.name AS creative, a.name AS advertiser, COALESCE(c.name, '{NO_CAMPAIGN}') AS campaign"),
     "placement": ("p.id, p.name",
                   "p.name AS placement"),
     "day":       ("s.day",
@@ -65,10 +70,10 @@ SELECT {select},
        sum(s.clicks)      AS clicks,
        ROUND(100.0 * sum(s.clicks) / NULLIF(sum(s.impressions), 0), 2) AS ctr_percent
 FROM v_daily_stats s
-JOIN campaigns c   ON c.id  = s.campaign_id
-JOIN advertisers a ON a.id  = c.advertiser_id
-JOIN creatives cr  ON cr.id = s.creative_id
-JOIN placements p  ON p.id  = s.placement_id
+JOIN advertisers a    ON a.id  = s.advertiser_id
+LEFT JOIN campaigns c ON c.id  = s.campaign_id       -- kampanja on valinnainen
+JOIN creatives cr     ON cr.id = s.creative_id
+JOIN placements p     ON p.id  = s.placement_id
 WHERE s.day BETWEEN %(start)s AND %(end)s
   AND (%(campaign_id)s::int IS NULL OR s.campaign_id = %(campaign_id)s)
 GROUP BY {group}

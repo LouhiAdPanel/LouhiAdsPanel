@@ -1,22 +1,24 @@
 /* Mainospaikat-sivu (placements.html): listaus, luonti, muokkaus, poisto ja upotuskoodi.
+   Toteutettu wireframejen "Mainospaikat / Uusi mainospaikka / Muokkaa mainospaikkaa" mukaan.
 
    Käyttäjä voi:
    - selata mainospaikkoja ja avata paikan upotuskoodin (kaikki käyttäjät)
    - luoda, muokata ja poistaa mainospaikkoja (VAIN ADMIN; painikkeissa .admin-only,
-     palvelin tarkistaa oikeuden require_admin-riippuvuudella)
+     palvelin tarkistaa oikeuden require_admin-riippuvuudella). Poisto kysyy vahvistuksen.
 
    API:
    - GET    /api/placements        lista
-   - POST   /api/placements        uusi paikka; palvelin muodostaa Placement ID:n (code) nimestä
-   - PUT    /api/placements/{id}   päivitys (code ei muutu)
+   - POST   /api/placements        uusi paikka; Koodi-kenttä ehdotetaan nimestä, tyhjänä
+                                   palvelin muodostaa sen itse
+   - PUT    /api/placements/{id}   päivitys (koodi ei muutu)
    - DELETE /api/placements/{id}   poisto
 
-   Placement ID (code) on tunniste, jolla sivustoille upotettu mainostagi pyytää mainoksia
+   Koodi (placement ID) on tunniste, jolla sivustoille upotettu mainostagi pyytää mainoksia
    (<div data-placement="...">). Siksi sitä ei voi muuttaa luonnin jälkeen. */
 (() => {
   const tbody = document.getElementById('placements-body');
   const countEl = document.getElementById('placements-count');
-  const COLS = 6;
+  const COLS = 5;
   let placements = [];
 
   // Lomakkeen ympäristövaihtoehdot (Louhen palvelut, joihin mainospaikkoja sijoitetaan).
@@ -24,16 +26,23 @@
   const ENVIRONMENTS = ['Louhi Konsoli', 'www', 'Domain Control Panel', 'Tukiportaali', 'cPanel'];
 
   // width/height ovat mainoksen MAKSIMIkoko: pienemmätkin mainokset kelpaavat tähän paikkaan.
-  const fields = [
+  // Kentät wireframen järjestyksessä (Nimi, Koodi, Leveys, Korkeus, Status).
+  // Ympäristö on lisäksi pakollinen tieto (sprintin hyväksymiskriteeri, tietokannan sarake).
+  // Funktio: Koodi on muokattaessa vain luku.
+  const fields = (isNew) => [
     { name: 'name', label: 'Nimi', required: true, maxlength: 150, placeholder: 'Louhi Konsoli – pääbanneri', wide: true },
+    { name: 'code', label: 'Koodi', required: isNew, maxlength: 64, pattern: '[a-z0-9_]{2,64}', wide: true,
+      readonly: !isNew, placeholder: 'louhi_konsoli_paabanneri',
+      help: isNew
+        ? 'Ehdotetaan nimestä. Vain pienet kirjaimet a–z, numerot ja _. Käytetään upotuskoodissa.'
+        : 'Koodia ei voi muuttaa, koska se on upotettu sivustojen koodiin.' },
+    { name: 'width', label: 'Leveys (px)', type: 'number', required: true, min: 1, max: 5000 },
+    { name: 'height', label: 'Korkeus (px)', type: 'number', required: true, min: 1, max: 5000 },
+    { name: 'status', label: 'Status', type: 'select', required: true,
+      options: [{ value: 'active', label: 'Aktiivinen' }, { value: 'paused', label: 'Keskeytetty' },
+        { value: 'inactive', label: 'Ei aktiivinen' }] },
     { name: 'environment', label: 'Ympäristö', type: 'select', required: true,
       options: ENVIRONMENTS.map((e) => ({ value: e, label: e })) },
-    { name: 'status', label: 'Tila', type: 'select', required: true,
-      options: [{ value: 'active', label: 'Aktiivinen' }, { value: 'inactive', label: 'Ei aktiivinen' }] },
-    { name: 'width', label: 'Mainoksen maksimileveys (px)', type: 'number', required: true, min: 1, max: 5000 },
-    { name: 'height', label: 'Mainoksen maksimikorkeus (px)', type: 'number', required: true, min: 1, max: 5000,
-      help: 'Tähän paikkaan näytetään vain mainoksia, jotka ovat enintään tämän kokoisia.' },
-    { name: 'notes', label: 'Tekniset huomiot', type: 'textarea' },
   ];
 
   /**
@@ -52,36 +61,27 @@
   };
 
   /**
-   * Näyttää Placement ID:n lomakkeessa: uudelle esikatselu, olemassa olevalle lukittu arvo.
-   * Palauttaa funktion, jonka UI.openForm kutsuu (onRender), kun lomake on piirretty.
-   * Uudella paikalla tunnus päivittyy nimeä kirjoitettaessa, jotta käyttäjä näkee etukäteen,
-   * millä tunnuksella paikka upotetaan sivustoille.
+   * Uudella mainospaikalla Koodi-kenttään ehdotetaan koodia nimestä niin kauan, kunnes
+   * käyttäjä muokkaa koodia itse. Varattu koodi näytetään varoituksena kentän alla.
+   * UI.openForm kutsuu tätä (onRender), kun lomake on piirretty.
    */
-  const attachCodePreview = (placement) => (form) => {
-    const box = document.createElement('div');
-    box.className = 'field field-wide';
-    box.innerHTML = `
-      <span class="field-label">Placement ID</span>
-      <div class="code-preview" aria-live="polite"></div>
-      <small class="field-help">${placement
-        ? 'Tunnusta ei voi muuttaa, koska se on upotettu sivustojen koodiin.'
-        : 'Muodostuu automaattisesti nimestä. Käytetään upotuskoodissa.'}</small>`;
-    form.elements.name.closest('.field').after(box);
-    const out = box.querySelector('.code-preview');
-    if (placement) {
-      out.textContent = placement.code;
-      return;
-    }
-    const update = () => {
-      const name = form.elements.name.value.trim();
-      out.textContent = name ? previewCode(name) : '–';
-      // Jos tunnus on jo käytössä, palvelin lisää perään _2, _3 ...
-      const taken = placements.some((p) => p.code === out.textContent);
-      out.classList.toggle('is-taken', taken);
-      out.title = taken ? 'Tunnus on jo käytössä – tallennettaessa perään lisätään numero.' : '';
+  const attachCodeSuggestion = (form) => {
+    const code = form.elements.code;
+    const help = code.closest('.field').querySelector('.field-help');
+    const defaultHelp = help.textContent;
+    let edited = false;
+    const check = () => {
+      const taken = placements.some((p) => p.code === code.value);
+      help.textContent = taken ? 'Koodi on jo käytössä – valitse toinen.' : defaultHelp;
+      help.classList.toggle('cell-warn', taken);
     };
-    form.elements.name.addEventListener('input', update);
-    update();
+    form.elements.name.addEventListener('input', () => {
+      if (edited) return;
+      const name = form.elements.name.value.trim();
+      code.value = name ? previewCode(name) : '';
+      check();
+    });
+    code.addEventListener('input', () => { edited = true; check(); });
   };
 
   /** Piirtää mainospaikkataulukon. Muokkaa-painike näkyy vain adminille (.admin-only). */
@@ -91,16 +91,18 @@
       UI.tableMessage(tbody, COLS, 'Ei vielä mainospaikkoja. Luo ensimmäinen yläkulman painikkeesta.');
       return;
     }
+    // Wireframen sarakkeet: nimi, koodi, koko, status, toiminnot. Ympäristö näytetään nimen
+    // alla ja upotuskoodin linkki koodin alla.
     tbody.innerHTML = placements.map((p) => `
       <tr>
-        <td>${UI.esc(p.name)}</td>
-        <td class="cell-mono">${UI.esc(p.code)}</td>
-        <td class="cell-muted">${UI.esc(p.environment)}</td>
+        <td>${UI.esc(p.name)}<span class="cell-sub">${UI.esc(p.environment)}</span></td>
+        <td class="cell-mono">${UI.esc(p.code)}
+          <button class="btn-ghost cell-sub" data-embed="${p.id}">Upotuskoodi</button></td>
         <td class="cell-muted">${p.width} × ${p.height}</td>
         <td>${UI.pill(p.status)}</td>
         <td class="cell-actions">
-          <button class="btn-ghost" data-embed="${p.id}">Upotuskoodi</button>
-          <button class="btn-ghost admin-only" data-edit="${p.id}">Muokkaa</button>
+          <button class="btn btn-small admin-only" data-edit="${p.id}">Muokkaa</button>
+          <button class="btn btn-small btn-small-danger admin-only" data-delete="${p.id}">Poista</button>
         </td>
       </tr>`).join('');
   };
@@ -117,38 +119,53 @@
   };
 
   /**
-   * Avaa luonti-/muokkauslomakkeen (vain admin). placement = null -> uusi mainospaikka.
-   * Luonnin jälkeen näytetään palvelimen muodostama Placement ID.
+   * Avaa "Uusi mainospaikka"- tai "Muokkaa mainospaikkaa" -lomakkeen (vain admin).
+   * placement = null -> uusi mainospaikka.
    */
   const openEditor = (placement) => {
     const isNew = !placement;
-    // Ympäristö, jota ei ole listalla (esim. lisätty API:n kautta), lisätään vaihtoehdoksi.
-    const envField = fields.find((f) => f.name === 'environment');
+    const f = fields(isNew);
+    const envField = f.find((x) => x.name === 'environment');
     if (placement && !ENVIRONMENTS.includes(placement.environment)) {
       envField.options = [...envField.options, { value: placement.environment, label: placement.environment }];
     }
     UI.openForm({
-      title: isNew ? 'Luo uusi mainospaikka' : `Muokkaa: ${placement.name}`,
-      fields,
+      title: isNew ? 'Uusi mainospaikka' : 'Muokkaa mainospaikkaa',
+      fields: f,
       values: placement || { status: 'active', environment: ENVIRONMENTS[0] },
-      submitLabel: isNew ? 'Luo mainospaikka' : 'Tallenna',
-      onRender: attachCodePreview(placement),
+      submitLabel: isNew ? 'Hyväksy' : 'Tallenna muutokset',
+      onRender: isNew ? attachCodeSuggestion : null,
       onSubmit: async (data) => {
         if (isNew) {
-          const created = await Api.post('/api/placements', data);
-          UI.toast(`Mainospaikka luotu. Placement ID: ${created.code}`);
+          await Api.post('/api/placements', data);
+          UI.toast('Mainospaikka luotu.');
         } else {
-          await Api.put(`/api/placements/${placement.id}`, data);
+          const { code, ...rest } = data;   // koodia ei lähetetä muokattaessa
+          await Api.put(`/api/placements/${placement.id}`, rest);
           UI.toast('Muutokset tallennettu.');
         }
         load();
       },
-      onDelete: isNew ? null : async () => {
-        await Api.del(`/api/placements/${placement.id}`);
-        UI.toast('Mainospaikka poistettu.');
-        load();
-      },
     });
+  };
+
+  /**
+   * Poista-painike: vahvistus (wireframe), sitten poisto. Poisto poistaa myös paikan
+   * sijoitukset ja tilastot, joten se mainitaan kysymyksessä.
+   */
+  const deletePlacement = async (p) => {
+    const ok = await UI.confirm({
+      title: 'Poista mainospaikka',
+      message: `Haluatko varmasti poistaa mainospaikan ${p.name}? Paikan mainossijoitukset ja tilastot poistuvat samalla.`,
+    });
+    if (!ok) return;
+    try {
+      await Api.del(`/api/placements/${p.id}`);
+      UI.toast('Mainospaikka poistettu.');
+      load();
+    } catch (err) {
+      UI.toast(err.message, 'error');
+    }
   };
 
   /**
@@ -188,8 +205,10 @@
   // Event delegation: rivit piirretään uudelleen joka latauksessa, joten kuunnellaan tbodya.
   tbody.addEventListener('click', (e) => {
     const edit = e.target.closest('[data-edit]');
+    const del = e.target.closest('[data-delete]');
     const embed = e.target.closest('[data-embed]');
     if (edit) openEditor(placements.find((p) => p.id === Number(edit.dataset.edit)));
+    if (del) deletePlacement(placements.find((p) => p.id === Number(del.dataset.delete)));
     if (embed) showEmbed(placements.find((p) => p.id === Number(embed.dataset.embed)));
   });
   document.getElementById('new-placement').addEventListener('click', () => openEditor(null));

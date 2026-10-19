@@ -84,8 +84,19 @@ mainospaikka jää tyhjäksi eikä sivu hidastu. Testaus: http://localhost:8000/
 **Demosivusto** (`demopage/`, http://localhost:8000/demopage/) on esimerkkiasiakkaan verkkosivu,
 jolle on upotettu kolme mainospaikkaa: `louhi_demo_hero` (300 × 600), `louhi_demo_banneri`
 (728 × 90) ja `louhi_demo_sivun_loppu` (300 × 250). Mainospaikat luodaan migraatiolla
-`db/migrations/004_demopage_placements.sql`. Mainos ilmestyy paikkaan, kun aktiivinen kampanja
-liitetään siihen ja kampanjassa on paikkaan mahtuva mainos. Tyhjä paikka näkyy katkoviivoitettuna.
+`db/migrations/004_demopage_placements.sql`. Mainos ilmestyy paikkaan, kun aktiivinen mainos
+sijoitetaan siihen Mainokset-sivulla. Tyhjä paikka näkyy katkoviivoitettuna.
+
+**Sijoitukset (placings):** mainos kuuluu mainostajalle, ja kampanja on valinnainen. Mainosta
+lisättäessä valitaan mainospaikat (vähintään yksi); jokaisesta tulee sijoitus, jolla on oma paino,
+prioriteetti, aikataulu ja valinnainen kampanja (taulu `placings`, migraatio `006_placings.sql`).
+Valittavissa ovat aktiiviset paikat, joihin kuva mahtuu – mainospaikan koko on mainoksen maksimikoko.
+Mainostagi skaalaa kuvan mittasuhteet säilyttäen mainospaikan kokoon. Näyttö viittaa sijoitukseen
+ja klikki näyttöön.
+
+**Kampanjan mainospaikat:** kampanjalle valitaan sallitut mainospaikat (taulu `campaign_placements`,
+migraatio `007_campaign_placements.sql`). Kampanjan mainoksen voi sijoittaa vain näihin paikkoihin,
+ja jakelu näyttää kampanjan mainoksen vain kampanjan aktiivisena aikana ja sen sallituissa paikoissa.
 
 ## Tilanne: MVP (tekninen määrittely, luku 20)
 

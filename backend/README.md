@@ -81,7 +81,14 @@ ja saman migraation voi ajaa turvallisesti uudelleen):
 psql -U postgres -d louhiads -f ..\db\migrations\001_auth.sql                     # kirjautuminen
 psql -U postgres -d louhiads -f ..\db\migrations\002_creative_campaign_optional.sql # kampanja valinnainen
 psql -U postgres -d louhiads -f ..\db\migrations\003_media_in_db.sql               # kuvat tietokantaan
+psql -U postgres -d louhiads -f ..\db\migrations\004_demopage_placements.sql       # demosivun mainospaikat
+psql -U postgres -d louhiads -f ..\db\migrations\005_creative_placements.sql       # mainoksen mainospaikat
+psql -U postgres -d louhiads -f ..\db\migrations\006_placings.sql                  # sijoitukset (PLACING)
+psql -U postgres -d louhiads -f ..\db\migrations\007_campaign_placements.sql       # kampanjan sallitut paikat
 ```
+
+Vaihtoehto kehityskoneella: rakenna kanta alusta (poistaa datan) komennolla
+`psql -U postgres -d louhiads -f ..\db\schema.sql -f ..\db\seed.sql`.
 
 ## Asetukset (`.env`)
 

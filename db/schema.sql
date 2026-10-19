@@ -1,6 +1,7 @@
 -- =====================================================================
 -- Louhi Ads – tietokantaskeema (PostgreSQL 14+)
--- Pohjana: tekninen määrittely, luku 15 (minimitietomalli)
+-- Pohjana: tekninen määrittely, luku 15 (minimitietomalli) ja tiimin
+-- tietokantakaavio, jossa sijoitus (PLACING) yhdistää mainoksen mainospaikkaan.
 --
 -- HUOM: Tiedosto pudottaa olemassa olevat taulut ensin, joten sen voi
 -- ajaa kehitysvaiheessa uudelleen "puhtaalta pöydältä".
@@ -19,8 +20,9 @@ SET client_encoding = 'UTF8';
 SET client_min_messages = warning;
 
 DROP VIEW  IF EXISTS v_campaign_status, v_daily_stats CASCADE;
-DROP TABLE IF EXISTS clicks, impressions, targeting_rules, campaign_placements,
-                     creatives, campaigns, placements, advertisers, sessions, users, media_files CASCADE;
+DROP TABLE IF EXISTS clicks, impressions, targeting_rules, placings, campaign_placements,
+                     creative_placements, creatives, campaigns, placements, advertisers,
+                     sessions, users, media_files CASCADE;
 
 -- ---------------------------------------------------------------------
 -- Käyttäjät (luku 14: Admin ja Editor)
@@ -55,8 +57,22 @@ CREATE TABLE sessions (
 CREATE INDEX idx_sessions_user ON sessions(user_id);
 
 -- ---------------------------------------------------------------------
+-- Tietomalli lyhyesti
+--   advertisers 1─* campaigns           (kampanja kuuluu mainostajalle)
+--   campaigns *─* placements            (kampanjan sallitut mainospaikat)
+--   advertisers 1─* creatives           (mainos kuuluu mainostajalle, kampanja EI pakollinen)
+--   placings = sijoitus: mainos tietyssä mainospaikassa omalla painolla,
+--             prioriteetilla, aikataululla ja tilalla. Kampanja on valinnainen.
+--   placings 1─* impressions 1─* clicks  (klikki kuuluu siihen näyttöön, jota klikattiin)
+-- Yhdistelmäavaimet (id, advertiser_id) varmistavat, että sijoituksen mainos ja
+-- kampanja kuuluvat samalle mainostajalle kuin sijoitus.
+-- ---------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------
 -- Mainostajat (luku 5)
--- Yritys, jonka kampanjoita näytetään. Nimi on yksilöllinen (UNIQUE).
+-- Yritys, jonka mainoksia näytetään. Nimi on yksilöllinen (UNIQUE).
+-- status: active / inactive / suspended (keskeytetty, esim. maksamatta).
+-- Vain aktiivisen mainostajan mainoksia jaetaan.
 -- updated_at päivittyy triggerillä (ks. tiedoston loppu).
 -- ---------------------------------------------------------------------
 CREATE TABLE advertisers (
@@ -64,7 +80,7 @@ CREATE TABLE advertisers (
     name        TEXT        NOT NULL UNIQUE,
     website_url TEXT,
     status      TEXT        NOT NULL DEFAULT 'active'
-                CHECK (status IN ('active', 'inactive')),
+                CHECK (status IN ('active', 'inactive', 'suspended')),
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -72,11 +88,12 @@ CREATE TABLE advertisers (
 -- ---------------------------------------------------------------------
 -- Mainospaikat (luku 3)
 -- code = placement ID, jota mainostagi käyttää (data-placement="...")
--- Mainospaikka = kohta Louhen sivustolla, johon mainos upotetaan.
+-- Mainospaikka = kohta sivustolla, johon mainos upotetaan.
 -- code: yksilöllinen, vain pienet kirjaimet, numerot ja alaviiva (CHECK),
 --       jotta se toimii turvallisesti HTML-attribuutissa ja URL:ssa.
 --       Muodostetaan nimestä (backend/app/slug.py) eikä sitä muuteta jälkikäteen.
 -- width/height: mainoksen MAKSIMIkoko pikseleinä (CHECK > 0).
+-- status: active / inactive / paused. Vain aktiivisessa paikassa jaetaan mainoksia.
 -- ---------------------------------------------------------------------
 CREATE TABLE placements (
     id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -87,20 +104,21 @@ CREATE TABLE placements (
     width       INTEGER     NOT NULL CHECK (width  > 0),
     height      INTEGER     NOT NULL CHECK (height > 0),
     status      TEXT        NOT NULL DEFAULT 'active'
-                CHECK (status IN ('active', 'inactive')),
+                CHECK (status IN ('active', 'inactive', 'paused')),
     notes       TEXT,                          -- tekniset asetukset / huomiot
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- ---------------------------------------------------------------------
--- Kampanjat (luku 6)
+-- Kampanjat (luku 6) – valinnainen tapa ryhmitellä mainostajan sijoituksia
 -- "Odottaa alkamista" ja "Päättynyt" johdetaan päivämääristä
 -- (ks. näkymä v_campaign_status), joten niitä ei tallenneta statukseen.
 -- advertiser_id ON DELETE RESTRICT: mainostajaa ei voi poistaa, jos sillä on
 --   kampanjoita (estää historian ja tilastojen katoamisen vahingossa).
--- priority: suurempi arvo voittaa, kun useampi kampanja osuu samaan paikkaan.
--- CHECK-rajoitteet: loppu alun jälkeen, ja aktiivisella on oltava molemmat päivät.
+-- Jos sijoituksella on kampanja, sijoitus näkyy vain kun kampanja on aktiivinen
+-- ja voimassa (sijoituksen oman aikataulun lisäksi).
+-- UNIQUE (id, advertiser_id): kohde sijoituksen yhdistelmäviiteavaimelle.
 -- ---------------------------------------------------------------------
 CREATE TABLE campaigns (
     id            INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -116,20 +134,17 @@ CREATE TABLE campaigns (
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (end_time IS NULL OR start_time IS NULL OR end_time > start_time),
     -- aktiivisella kampanjalla on oltava aikaväli
-    CHECK (status <> 'active' OR (start_time IS NOT NULL AND end_time IS NOT NULL))
+    CHECK (status <> 'active' OR (start_time IS NOT NULL AND end_time IS NOT NULL)),
+    UNIQUE (id, advertiser_id)
 );
 CREATE INDEX idx_campaigns_advertiser ON campaigns(advertiser_id);
--- Osittainen indeksi (WHERE status = 'active'): mainosten jakelu hakee vain
--- aktiivisia kampanjoita, joiden aikaväli osuu nykyhetkeen. Indeksi pysyy pienenä.
-CREATE INDEX idx_campaigns_active     ON campaigns(start_time, end_time) WHERE status = 'active';
 
 -- ---------------------------------------------------------------------
--- Kampanja <-> mainospaikka (monesta moneen)
--- Kampanja voi näkyä monessa paikassa ja paikassa monta kampanjaa.
--- Yhdistelmäavain estää saman parin tuplarivit. ON DELETE CASCADE kummassakin:
--- jos kampanja tai paikka poistetaan, pelkkä linkkirivi on turha.
--- Lisäindeksi placement_id:lle, koska jakelu hakee "paikan kampanjat"
--- (pääavaimen indeksi alkaa campaign_id:llä eikä auta siihen).
+-- Kampanjan sallitut mainospaikat (monesta moneen)
+-- Kampanjalomakkeella valitaan paikat, joissa kampanjan mainokset saavat näkyä.
+-- Mainoslomakkeella kampanjan valinta rajaa mainospaikkavalinnan näihin, ja jakelu
+-- näyttää kampanjan sijoituksen vain, jos paikka on yhä kampanjan sallittu paikka.
+-- ON DELETE CASCADE: kampanjan tai paikan poisto poistaa linkkirivin.
 -- ---------------------------------------------------------------------
 CREATE TABLE campaign_placements (
     campaign_id  INTEGER NOT NULL REFERENCES campaigns(id)  ON DELETE CASCADE,
@@ -140,33 +155,75 @@ CREATE INDEX idx_cp_placement ON campaign_placements(placement_id);
 
 -- ---------------------------------------------------------------------
 -- Mainosaineistot (luku 7) – MVP: JPG/PNG + kohde-URL
--- weight = painotettu näyttöjako (luku 8). Tasajako = kaikilla sama paino.
--- width/height = mainoksen koko. Mainos näytetään vain mainospaikoissa, joiden
+-- Mainos kuuluu mainostajalle. Kampanjaa ei tarvita: mainos yhdistetään
+-- mainospaikkoihin sijoituksilla (placings).
+-- width/height = mainoksen koko. Mainos saa näkyä vain paikoissa, joiden
 -- width/height (= maksimikoko) on vähintään yhtä suuri.
 -- width/height saavat olla NULL (esim. ulkoinen kuva-URL, jonka kokoa ei tiedetä).
 -- image_url: '/media/<nimi>' (ks. media_files) tai ulkoinen osoite.
 -- target_url: CHECK vaatii http(s)-osoitteen (~* = regex, kirjainkoko ei merkitse),
 --             jotta klikkaus ei voi ohjata esim. javascript:-osoitteeseen.
--- weight 0–100: 0 = ei näytetä lainkaan.
+-- UNIQUE (id, advertiser_id): kohde sijoituksen yhdistelmäviiteavaimelle.
 -- ---------------------------------------------------------------------
 CREATE TABLE creatives (
-    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    -- Kampanja on valinnainen: mainos voi odottaa mainoskirjastossa ilman kampanjaa.
-    -- Kampanjan poisto ei poista mainosta, vaan irrottaa sen kampanjasta.
-    campaign_id INTEGER     REFERENCES campaigns(id) ON DELETE SET NULL,
-    name        TEXT        NOT NULL,
-    image_url   TEXT        NOT NULL,
-    target_url  TEXT        NOT NULL CHECK (target_url ~* '^https?://'),
-    alt_text    TEXT        NOT NULL DEFAULT '',
-    width       INTEGER,
-    height      INTEGER,
-    weight      INTEGER     NOT NULL DEFAULT 1 CHECK (weight BETWEEN 0 AND 100),
-    status      TEXT        NOT NULL DEFAULT 'active'
-                CHECK (status IN ('active', 'inactive')),
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    id            INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    advertiser_id INTEGER     NOT NULL REFERENCES advertisers(id) ON DELETE RESTRICT,
+    name          TEXT        NOT NULL,
+    image_url     TEXT        NOT NULL,
+    target_url    TEXT        NOT NULL CHECK (target_url ~* '^https?://'),
+    alt_text      TEXT        NOT NULL DEFAULT '',
+    width         INTEGER,
+    height        INTEGER,
+    status        TEXT        NOT NULL DEFAULT 'active'
+                  CHECK (status IN ('active', 'inactive', 'paused')),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (id, advertiser_id)
 );
-CREATE INDEX idx_creatives_campaign ON creatives(campaign_id);
+CREATE INDEX idx_creatives_advertiser ON creatives(advertiser_id);
+
+-- ---------------------------------------------------------------------
+-- Sijoitus (kaavion PLACING): mainos tietyssä mainospaikassa
+-- Taulun nimi on monikossa (placings), koska PLACING on PostgreSQL:n varattu sana.
+-- Yksi rivi = "tämä mainos näkyy tässä paikassa näillä ehdoilla".
+--   weight   = painotettu näyttöjako saman prioriteetin sijoitusten kesken (0 = ei näytetä)
+--   priority = suurempi voittaa, kun samassa paikassa on useita sijoituksia
+--   start_time / end_time = sijoituksen oma aikataulu (end_time NULL = toistaiseksi)
+--   status   = active / inactive / paused; mainoslomakkeelta poistettu paikka
+--              merkitään inactive-tilaan (ei poisteta), jotta tilastot säilyvät
+--   campaign_id = valinnainen kampanja (NULL = ilman kampanjaa)
+-- Yhdistelmäviiteavaimet:
+--   (creative_id, advertiser_id) -> creatives(id, advertiser_id): mainos on samalta
+--     mainostajalta. ON UPDATE CASCADE: jos mainoksen mainostaja vaihdetaan, sijoitukset
+--     seuraavat mukana. ON DELETE CASCADE: mainoksen poisto poistaa sijoitukset.
+--   (campaign_id, advertiser_id) -> campaigns(id, advertiser_id): kampanja on samalta
+--     mainostajalta. Kun campaign_id on NULL, ehtoa ei tarkisteta (MATCH SIMPLE).
+--     Kampanjaa poistettaessa backend irrottaa sijoitukset ensin (routers/campaigns.py).
+-- UNIQUE (creative_id, placement_id): sama mainos on samassa paikassa vain kerran.
+-- ---------------------------------------------------------------------
+CREATE TABLE placings (
+    id            INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    advertiser_id INTEGER     NOT NULL,
+    creative_id   INTEGER     NOT NULL,
+    campaign_id   INTEGER,
+    placement_id  INTEGER     NOT NULL REFERENCES placements(id) ON DELETE CASCADE,
+    weight        INTEGER     NOT NULL DEFAULT 1 CHECK (weight BETWEEN 0 AND 100),
+    priority      INTEGER     NOT NULL DEFAULT 0 CHECK (priority BETWEEN 0 AND 100),
+    start_time    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    end_time      TIMESTAMPTZ,
+    status        TEXT        NOT NULL DEFAULT 'active'
+                  CHECK (status IN ('active', 'inactive', 'paused')),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (end_time IS NULL OR end_time > start_time),
+    UNIQUE (creative_id, placement_id),
+    FOREIGN KEY (creative_id, advertiser_id) REFERENCES creatives(id, advertiser_id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (campaign_id, advertiser_id) REFERENCES campaigns(id, advertiser_id)
+);
+-- Jakelu hakee "paikan sijoitukset", kampanjasivu "kampanjan sijoitukset"
+CREATE INDEX idx_placing_placement ON placings(placement_id);
+CREATE INDEX idx_placing_campaign  ON placings(campaign_id);
 
 -- ---------------------------------------------------------------------
 -- Ladatut mainoskuvat. Tallennetaan tietokantaan, jotta ne säilyvät myös
@@ -190,46 +247,42 @@ CREATE TABLE media_files (
 -- ---------------------------------------------------------------------
 -- Kohdennussäännöt (luku 9) – valmiina myöhempää käyttöä varten
 -- esim. type='segment', operator='eq', value='webhosting_customer'
--- Säännöt kuuluvat kampanjaan, joten kampanjan poisto poistaa ne (CASCADE).
+-- Säännöt kuuluvat sijoitukseen, joten sijoituksen poisto poistaa ne (CASCADE).
 -- ---------------------------------------------------------------------
 CREATE TABLE targeting_rules (
     id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    placing_id  INTEGER NOT NULL REFERENCES placings(id) ON DELETE CASCADE,
     type        TEXT    NOT NULL,
     operator    TEXT    NOT NULL CHECK (operator IN ('eq', 'neq', 'in', 'not_in')),
     value       TEXT    NOT NULL
 );
-CREATE INDEX idx_targeting_campaign ON targeting_rules(campaign_id);
+CREATE INDEX idx_targeting_placing ON targeting_rules(placing_id);
 
 -- ---------------------------------------------------------------------
 -- Näytöt ja klikkaukset (luvut 11, 12, 18)
 -- Ei IP-osoitteita eikä käyttäjätunnisteita (tietosuoja, luku 18).
 -- Yksi rivi = yksi näyttö / yksi klikkaus. BIGINT-id, koska rivejä kertyy paljon.
--- campaign_id tallennetaan erikseen (vaikka mainoksesta sen voisi päätellä), koska
--- mainoksen kampanja voi myöhemmin vaihtua tai poistua; tilasto säilyttää tapahtumahetken.
--- ON DELETE CASCADE: poistetun kampanjan/mainoksen/paikan tilastot poistuvat
--- samalla. Siksi paneelissa kannattaa mieluummin arkistoida kuin poistaa.
--- Indeksit: created_at aikavälihakuihin, (campaign_id, created_at) kampanjaraportteihin.
+-- Näyttö viittaa sijoitukseen, josta mainostaja, mainos, kampanja ja paikka
+-- saadaan. Klikki viittaa näyttöön, jota klikattiin (klikkiosoite sisältää
+-- näytön id:n, ks. routers/serving.py).
+-- ON DELETE CASCADE: sijoituksen (tai mainoksen/paikan) poisto poistaa tilastot.
+-- Siksi mainoslomake ei poista sijoituksia vaan merkitsee ne inactive-tilaan.
 -- ---------------------------------------------------------------------
 CREATE TABLE impressions (
     id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    campaign_id  INTEGER     NOT NULL REFERENCES campaigns(id)  ON DELETE CASCADE,
-    creative_id  INTEGER     NOT NULL REFERENCES creatives(id)  ON DELETE CASCADE,
-    placement_id INTEGER     NOT NULL REFERENCES placements(id) ON DELETE CASCADE,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+    placing_id   INTEGER     NOT NULL REFERENCES placings(id) ON DELETE CASCADE,
+    occurred_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_impressions_time     ON impressions(created_at);
-CREATE INDEX idx_impressions_campaign ON impressions(campaign_id, created_at);
+CREATE INDEX idx_impressions_time    ON impressions(occurred_at);
+CREATE INDEX idx_impressions_placing ON impressions(placing_id, occurred_at);
 
 CREATE TABLE clicks (
-    id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    campaign_id  INTEGER     NOT NULL REFERENCES campaigns(id)  ON DELETE CASCADE,
-    creative_id  INTEGER     NOT NULL REFERENCES creatives(id)  ON DELETE CASCADE,
-    placement_id INTEGER     NOT NULL REFERENCES placements(id) ON DELETE CASCADE,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    impression_id BIGINT      NOT NULL REFERENCES impressions(id) ON DELETE CASCADE,
+    occurred_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_clicks_time     ON clicks(created_at);
-CREATE INDEX idx_clicks_campaign ON clicks(campaign_id, created_at);
+CREATE INDEX idx_clicks_time       ON clicks(occurred_at);
+CREATE INDEX idx_clicks_impression ON clicks(impression_id);
 
 -- ---------------------------------------------------------------------
 -- updated_at päivittyy automaattisesti
@@ -247,6 +300,7 @@ CREATE TRIGGER trg_advertisers_updated BEFORE UPDATE ON advertisers FOR EACH ROW
 CREATE TRIGGER trg_placements_updated  BEFORE UPDATE ON placements  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_campaigns_updated   BEFORE UPDATE ON campaigns   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_creatives_updated   BEFORE UPDATE ON creatives   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_placing_updated     BEFORE UPDATE ON placings     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ---------------------------------------------------------------------
 -- Näkymä: kampanjan näytettävä tila hallintapaneeliin
@@ -255,7 +309,6 @@ CREATE TRIGGER trg_creatives_updated   BEFORE UPDATE ON creatives   FOR EACH ROW
 -- muuten tallennettu status
 -- Tila lasketaan kyselyhetkellä now()-funktiolla, joten kampanja vaihtuu
 -- 'pending' -> 'active' -> 'ended' itsestään ilman ajastettua päivitystä.
--- c.* + display_status: API lukee kampanjat tästä näkymästä.
 -- ---------------------------------------------------------------------
 CREATE VIEW v_campaign_status AS
 SELECT c.*,
@@ -268,32 +321,35 @@ FROM campaigns c;
 
 -- ---------------------------------------------------------------------
 -- Näkymä: päiväkohtainen raportti (luku 11) – pohja raportoinnille ja CSV:lle
--- Yksi rivi per (päivä, kampanja, mainos, mainospaikka).
--- 1) imp ja clk laskevat näytöt ja klikit erikseen ryhmiteltyinä. Päivä otetaan
---    Suomen ajassa, jotta klo 00–03 tapahtumat eivät mene edelliselle päivälle (UTC).
--- 2) FULL OUTER JOIN yhdistää ne niin, että mukana ovat myös rivit, joilla on vain
---    näyttöjä tai vain klikkejä; COALESCE täyttää puuttuvat avaimet ja nollat.
--- 3) CTR % = 100 * klikit / näytöt, kahden desimaalin tarkkuudella. NULLIF tekee
---    nollasta NULLin, jolloin ilman näyttöjä CTR on NULL eikä jako nollalla kaada kyselyä.
+-- Yksi rivi per (päivä, sijoitus). Sijoituksen kautta mukana mainostaja,
+-- mainos, kampanja (voi olla NULL) ja mainospaikka.
+-- 1) imp laskee näytöt ja clk klikit sijoituksittain. Klikin sijoitus saadaan
+--    näytön kautta. Päivä otetaan Suomen ajassa, jotta klo 00–03 tapahtumat
+--    eivät mene edelliselle päivälle (UTC).
+-- 2) FULL OUTER JOIN: mukana myös rivit, joilla on vain näyttöjä tai vain klikkejä.
+-- 3) CTR % = 100 * klikit / näytöt. NULLIF estää jaon nollalla.
 -- ---------------------------------------------------------------------
 CREATE VIEW v_daily_stats AS
 WITH imp AS (
-    SELECT (created_at AT TIME ZONE 'Europe/Helsinki')::date AS day,
-           campaign_id, creative_id, placement_id, count(*) AS impressions
-    FROM impressions GROUP BY 1, 2, 3, 4
+    SELECT (occurred_at AT TIME ZONE 'Europe/Helsinki')::date AS day,
+           placing_id, count(*) AS impressions
+    FROM impressions GROUP BY 1, 2
 ), clk AS (
-    SELECT (created_at AT TIME ZONE 'Europe/Helsinki')::date AS day,
-           campaign_id, creative_id, placement_id, count(*) AS clicks
-    FROM clicks GROUP BY 1, 2, 3, 4
+    SELECT (k.occurred_at AT TIME ZONE 'Europe/Helsinki')::date AS day,
+           i.placing_id, count(*) AS clicks
+    FROM clicks k JOIN impressions i ON i.id = k.impression_id
+    GROUP BY 1, 2
+), d AS (
+    SELECT COALESCE(i.day, k.day)               AS day,
+           COALESCE(i.placing_id, k.placing_id) AS placing_id,
+           COALESCE(i.impressions, 0)           AS impressions,
+           COALESCE(k.clicks, 0)                AS clicks
+    FROM imp i
+    FULL OUTER JOIN clk k ON i.day = k.day AND i.placing_id = k.placing_id
 )
-SELECT COALESCE(i.day, k.day)                   AS day,
-       COALESCE(i.campaign_id, k.campaign_id)   AS campaign_id,
-       COALESCE(i.creative_id, k.creative_id)   AS creative_id,
-       COALESCE(i.placement_id, k.placement_id) AS placement_id,
-       COALESCE(i.impressions, 0)               AS impressions,
-       COALESCE(k.clicks, 0)                    AS clicks,
-       ROUND(100.0 * COALESCE(k.clicks, 0) / NULLIF(i.impressions, 0), 2) AS ctr_percent
-FROM imp i
-FULL OUTER JOIN clk k
-  ON i.day = k.day AND i.campaign_id = k.campaign_id
- AND i.creative_id = k.creative_id AND i.placement_id = k.placement_id;
+SELECT d.day, d.placing_id,
+       pl.advertiser_id, pl.creative_id, pl.campaign_id, pl.placement_id,
+       d.impressions, d.clicks,
+       ROUND(100.0 * d.clicks / NULLIF(d.impressions, 0), 2) AS ctr_percent
+FROM d
+JOIN placings pl ON pl.id = d.placing_id;

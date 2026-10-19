@@ -3,8 +3,18 @@
 | Tiedosto     | Sisältö |
 |--------------|---------|
 | `schema.sql` | Taulut, indeksit, triggerit ja raportointinäkymät. **Pudottaa olemassa olevat taulut** – vain kehityskäyttöön. |
-| `seed.sql`   | Testidata: 5 mainostajaa, 5 mainospaikkaa, 5 kampanjaa, 7 mainosta sekä keinotekoiset näytöt/klikkaukset 14 päivältä. |
-| `migrations/` | Muutokset olemassa olevaan kantaan ilman datan poistoa (`001_auth.sql` kirjautuminen, `002_creative_campaign_optional.sql` mainoksen kampanja valinnaiseksi, `003_media_in_db.sql` mainoskuvat tietokantaan, `004_demopage_placements.sql` demosivun kolme mainospaikkaa). |
+| `seed.sql`   | Testidata: mainostajat, mainospaikat (myös demosivun kolme), kampanjat ja niiden mainospaikat, mainokset, sijoitukset sekä keinotekoiset näytöt/klikkaukset 14 päivältä. |
+| `migrations/` | Muutokset olemassa olevaan kantaan ilman datan poistoa. Aja numerojärjestyksessä ne, joita kantaan ei ole vielä ajettu. |
+
+| Migraatio | Muutos |
+|-----------|--------|
+| `001_auth.sql` | Kirjautuminen (users, sessions) |
+| `002_creative_campaign_optional.sql` | Mainoksen kampanja valinnaiseksi |
+| `003_media_in_db.sql` | Mainoskuvat tietokantaan |
+| `004_demopage_placements.sql` | Demosivun kolme mainospaikkaa |
+| `005_creative_placements.sql` | Mainoksen omat mainospaikat (välivaihe, korvautuu 006:lla) |
+| `006_placings.sql` | Uusi tietomalli: sijoitukset (`placings`, kaavion PLACING) |
+| `007_campaign_placements.sql` | Kampanjan sallitut mainospaikat (`campaign_placements`) |
 
 ## Käyttöönotto (Windows, PowerShell)
 
@@ -33,15 +43,22 @@ Goodi = draft, Louhi = paused.
 ## Tietomalli
 
 ```
-advertisers 1─* campaigns 1─* creatives
-                campaigns *─* placements   (campaign_placements)
-                campaigns 1─* targeting_rules
-impressions / clicks → campaign, creative, placement, aikaleima
+advertisers 1─* campaigns
+advertisers 1─* creatives                (kampanja ei ole mainokselle pakollinen)
+placings = sijoitus: creative + placement (+ valinnainen campaign)
+           omalla painolla, prioriteetilla, aikataululla ja tilalla
+placings 1─* impressions 1─* clicks      (klikki kuuluu näyttöön)
+placings 1─* targeting_rules
+campaigns *─* placements                 (campaign_placements = kampanjan sallitut paikat)
 ```
 
+- **Taulun nimi** `placings` (monikko), koska `PLACING` on PostgreSQL:n varattu sana.
 - **Kampanjan tila:** tallennetaan `draft / active / paused / archived`.
   "Odottaa alkamista" ja "Päättynyt" lasketaan päivämääristä näkymässä `v_campaign_status`.
-- **Näyttöjako:** `creatives.weight`. Sama paino kaikilla = tasajako.
-- **Raportointi:** `v_daily_stats` antaa päivä × kampanja × mainos × paikka -tason
-  näytöt, klikit ja CTR:n (Helsingin aikavyöhyke). Tästä tehdään myös CSV-vienti.
+  Sijoitus näkyy, kun sijoitus (ja sen mahdollinen kampanja) on aktiivinen ja voimassa.
+  Kampanjan sijoituksen mainospaikan on lisäksi oltava kampanjan sallituissa paikoissa.
+- **Näyttöjako:** `placings.weight` saman prioriteetin sijoitusten kesken; korkein `priority` voittaa
+  (lomakkeella Matala 0 / Normaali 50 / Korkea 100).
+- **Raportointi:** `v_daily_stats` antaa päivä × sijoitus -tason näytöt, klikit ja CTR:n
+  (mukana mainostaja, mainos, kampanja ja paikka; Helsingin aikavyöhyke). Tästä tehdään myös CSV-vienti.
 - **Tietosuoja:** näyttö- ja klikkitauluihin ei tallenneta IP-osoitteita eikä käyttäjätunnisteita.

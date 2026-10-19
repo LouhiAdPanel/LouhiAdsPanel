@@ -24,7 +24,7 @@
   // (METRICS) ovat aina lopussa. Kenttien nimet vastaavat API:n palauttamia sarakkeita.
   const COLUMNS = {
     campaign:  [['campaign', 'Kampanja'], ['advertiser', 'Mainostaja']],
-    creative:  [['creative', 'Mainos'], ['campaign', 'Kampanja']],
+    creative:  [['creative', 'Mainos'], ['advertiser', 'Mainostaja'], ['campaign', 'Kampanja']],
     placement: [['placement', 'Mainospaikka']],
     day:       [['day', 'Päivä']],
   };
