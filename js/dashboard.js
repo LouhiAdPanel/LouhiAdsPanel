@@ -1,4 +1,12 @@
-/* Etusivu: kampanjat tiloittain, päivän luvut ja viimeisimmät kampanjat. */
+/* ============================================================
+   LOUHI ADS — etusivu (dashboard)
+   Kampanjat tiloittain, päivän luvut ja viimeisimmät kampanjat.
+
+   Käytetään: dashboard.html (elementtien id:t, esim. stat-active,
+   status-pending, recent-campaigns-body, tulevat sieltä).
+   Riippuvuudet: api.js (Api.get) ja ui.js (muotoilu, pill, toast,
+   tableMessage). Tervehdyksen käyttäjän nimellä hoitaa auth.js.
+   ============================================================ */
 (() => {
   const today = new Date();
   document.getElementById('dashboard-date').textContent =
@@ -6,8 +14,10 @@
 
   const setText = (id, value) => { document.getElementById(id).textContent = value; };
   const tbody = document.getElementById('recent-campaigns-body');
-  const COLS = 5;
+  const COLS = 5; // taulukon sarakemäärä, tarvitaan viestirivin colspaniin
 
+  /** Hakee tunnusluvut (aktiiviset kampanjat, päivän näytöt ja klikit) yläkortteihin.
+      Virhe näytetään toastina, jotta muu etusivu toimii silti. */
   const loadSummary = async () => {
     try {
       const s = await Api.get('/api/stats/summary');
@@ -19,12 +29,15 @@
     }
   };
 
+  /** Hakee kaikki kampanjat kerran ja laskee niistä sekä tilakorttien määrät
+      että viiden viimeksi muokatun listan (ei erillisiä API-kutsuja). */
   const loadCampaigns = async () => {
     UI.tableMessage(tbody, COLS, 'Ladataan…');
     try {
       const campaigns = await Api.get('/api/campaigns');
 
-      // Tilakortit
+      // Tilakortit. display_status on backendin laskema näkyvä tila (huomioi
+      // myös alku- ja loppupäivän), siksi sitä käytetään eikä tallennettua tilaa.
       const count = (st) => campaigns.filter((c) => c.display_status === st).length;
       setText('status-active', count('active'));
       setText('status-pending', count('pending'));
@@ -41,6 +54,7 @@
         UI.tableMessage(tbody, COLS, 'Ei vielä kampanjoita.');
         return;
       }
+      // Kaikki tekstit UI.esc():n läpi (XSS-esto), koska nimet ovat käyttäjän syöttämiä
       tbody.innerHTML = recent.map((c) => `
         <tr>
           <td>${UI.esc(c.name)}</td>
@@ -54,6 +68,7 @@
     }
   };
 
+  // Haut käynnistetään rinnakkain; kumpikin käsittelee omat virheensä
   loadSummary();
   loadCampaigns();
 })();

@@ -1,4 +1,17 @@
-"""Dashboard-luvut ja raportointi (luku 11) + CSV-vienti."""
+"""Dashboard-luvut ja raportointi (luku 11) + CSV-vienti.
+
+Endpointit (polun /api/stats alla):
+  GET /api/stats/summary      -> dashboardin tunnusluvut (tänään)
+  GET /api/stats/report       -> raportti JSONina, ryhmittely ja aikaväli valittavissa
+  GET /api/stats/report.csv   -> sama raportti CSV-tiedostona (Excel)
+
+Oikeudet: kaikki kirjautuneet (main.py lisää kirjautumisvaatimuksen).
+
+Liittyy: luvut lasketaan serving.py:n kirjaamista näytöistä (impressions) ja klikeistä
+(clicks) näkymän v_daily_stats kautta (schema.sql), joka summaa ne päivittäin
+(Suomen aika) kampanjan, mainoksen ja mainospaikan mukaan. CTR = klikit / näytöt * 100.
+Frontendissä dashboard.html (js/dashboard.js) ja reporting.html (js/reporting.js).
+"""
 import csv
 import io
 from datetime import date, timedelta
@@ -11,6 +24,12 @@ from ..db import get_conn
 
 router = APIRouter(prefix="/api/stats", tags=["Raportointi"])
 
+# Dashboardin luvut yhdellä rivillä: aktiivisten kampanjoiden määrä (alikysely) sekä
+# tämän päivän näytöt, klikit ja CTR-prosentti. "Tänään" lasketaan Suomen ajassa, jotta
+# päivä vaihtuu keskiyöllä paikallista aikaa eikä UTC:n mukaan.
+# COALESCE(..., 0): ilman dataa sum() antaa NULL -> näytetään 0.
+# NULLIF(..., 0): jakaja 0 muutetaan NULLiksi, jolloin CTR on NULL eikä tule nollalla
+# jakamisen virhettä.
 SUMMARY_SQL = """
 SELECT
   (SELECT count(*) FROM v_campaign_status WHERE display_status = 'active') AS active_campaigns,
@@ -22,6 +41,8 @@ WHERE day = (now() AT TIME ZONE 'Europe/Helsinki')::date
 """
 
 # Ryhmittelyvaihtoehdot. Avaimet tulevat whitelististä, ei suoraan käyttäjältä SQL:ään.
+# Arvo = (GROUP BY -osa, SELECT-osa). Ryhmittelyssä on mukana id, jotta samannimiset
+# kampanjat/mainokset eivät yhdisty yhdeksi riviksi.
 GROUPINGS = {
     "campaign":  ("c.id, c.name, a.name",
                   "c.name AS campaign, a.name AS advertiser"),
@@ -33,6 +54,11 @@ GROUPINGS = {
                   "s.day"),
 }
 
+# Raporttikysely. Päivittäiset luvut (v_daily_stats) yhdistetään nimitietoihin ja
+# summataan valitun ryhmittelyn mukaan. {select}, {group} ja {order} täytetään
+# GROUPINGS-taulukosta (ks. _report); käyttäjän arvot (päivät, kampanja) kulkevat
+# %(nimi)s-parametreina. Aikaväli on molemmista päistä mukaan luettu (BETWEEN).
+# campaign_id on valinnainen suodatin (NULL = kaikki kampanjat).
 REPORT_SQL = """
 SELECT {select},
        sum(s.impressions) AS impressions,
@@ -53,6 +79,11 @@ GroupBy = Literal["campaign", "creative", "placement", "day"]
 
 
 def _report(conn, group_by, start, end, campaign_id):
+    """Yhteinen toteutus JSON- ja CSV-raportille.
+
+    Oletusaikaväli: 30 päivää tähän päivään asti (alku = loppu - 29 pv, molemmat mukana).
+    Päiväryhmittely järjestetään päivän mukaan, muut näyttömäärän mukaan suurin ensin.
+    """
     end = end or date.today()
     start = start or end - timedelta(days=29)
     group, select = GROUPINGS[group_by]
@@ -65,7 +96,11 @@ def _report(conn, group_by, start, end, campaign_id):
 
 @router.get("/summary")
 def summary(conn=Depends(get_conn)):
-    """Dashboardin luvut: aktiiviset kampanjat, tämän päivän näytöt/klikit/CTR."""
+    """Dashboardin luvut: aktiiviset kampanjat, tämän päivän näytöt/klikit/CTR.
+
+    GET /api/stats/summary. Palauttaa {active_campaigns, impressions_today,
+    clicks_today, ctr_today}; ctr_today on null, jos näyttöjä ei ole.
+    """
     return conn.execute(SUMMARY_SQL).fetchone()
 
 
@@ -77,7 +112,13 @@ def report(
     campaign_id: int | None = None,
     conn=Depends(get_conn),
 ):
-    """Oletuksena viimeiset 30 päivää kampanjoittain."""
+    """Oletuksena viimeiset 30 päivää kampanjoittain.
+
+    GET /api/stats/report?group_by=campaign|creative|placement|day&start=YYYY-MM-DD
+    &end=YYYY-MM-DD&campaign_id=N (kaikki valinnaisia).
+    Palauttaa listan rivejä: ryhmän nimikentät + impressions, clicks, ctr_percent.
+    Virheet: 422 tuntematon group_by tai virheellinen päivämäärä.
+    """
     return _report(conn, group_by, start, end, campaign_id)
 
 
@@ -89,7 +130,14 @@ def report_csv(
     campaign_id: int | None = None,
     conn=Depends(get_conn),
 ):
+    """GET /api/stats/report.csv – sama raportti ladattavana CSV-tiedostona.
+
+    Parametrit ja virheet kuten /report. Erottimena puolipiste, koska suomenkielinen
+    Excel olettaa sen (pilkku on desimaalierotin). Content-Disposition: attachment saa
+    selaimen tallentamaan tiedoston näyttämisen sijaan. Ilman rivejä tiedostossa on vain BOM.
+    """
     rows = _report(conn, group_by, start, end, campaign_id)
+    # CSV kirjoitetaan muistissa olevaan tekstipuskuriin ja lähetetään sieltä.
     buf = io.StringIO()
     buf.write("﻿")  # BOM, jotta Excel tunnistaa UTF-8:n (ä, ö)
     if rows:

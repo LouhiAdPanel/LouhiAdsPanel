@@ -34,6 +34,7 @@ LouhiAds/
 ├── reporting.html           raportointi ja CSV-vienti
 ├── users.html               käyttäjähallinta (Admin)
 ├── ad-demo.html             mainostagin testisivu
+├── demopage/               esimerkkiasiakkaan sivusto, jossa 3 mainospaikkaa (julkinen)
 ├── louhi-ads.js             mainostagi
 ├── css/style.css            tyylit
 ├── js/
@@ -79,6 +80,12 @@ Mainospaikka lisätään Louhen sivulle näin (valmis koodi löytyy Mainospaikat
 Tagi hakee mainospaikalle sopivan mainoksen, näyttää sen ja kirjaa näytön. Klikkaus kirjataan
 ja käyttäjä ohjataan kohdesivulle UTM-parametreilla. Jos mainosta ei ole tai palvelin ei vastaa,
 mainospaikka jää tyhjäksi eikä sivu hidastu. Testaus: http://localhost:8000/ad-demo.html
+
+**Demosivusto** (`demopage/`, http://localhost:8000/demopage/) on esimerkkiasiakkaan verkkosivu,
+jolle on upotettu kolme mainospaikkaa: `louhi_demo_hero` (300 × 600), `louhi_demo_banneri`
+(728 × 90) ja `louhi_demo_sivun_loppu` (300 × 250). Mainospaikat luodaan migraatiolla
+`db/migrations/004_demopage_placements.sql`. Mainos ilmestyy paikkaan, kun aktiivinen kampanja
+liitetään siihen ja kampanjassa on paikkaan mahtuva mainos. Tyhjä paikka näkyy katkoviivoitettuna.
 
 ## Tilanne: MVP (tekninen määrittely, luku 20)
 

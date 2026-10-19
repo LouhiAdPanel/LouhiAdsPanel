@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Raportointi · Louhi Ads</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=6">
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=7">
 </head>
 <body>
 <div class="app">
@@ -103,9 +103,32 @@
     </div>
   </main>
 </div>
-  <script src="js/api.js?v=6"></script>
-  <script src="js/ui.js?v=6"></script>
-  <script src="js/auth.js?v=6"></script>
-  <script src="js/reporting.js?v=6"></script>
+
+<!-- Footer (Louhi-linjaus: musta pohja, valkoiset otsikot, harmaat tekstit, oranssit korostukset) -->
+<footer class="app-footer">
+  <div class="app-footer-inner">
+    <div class="app-footer-brand">
+      <div class="app-footer-logo"><span class="brand-mark">L</span><span class="app-footer-name">Louhi Ads</span></div>
+      <p>Mainonnanhallinnan hallintapaneeli.<br>Laurea – Digital service project.</p>
+    </div>
+    <nav class="app-footer-col" aria-label="Pikalinkit">
+      <h4>Pikalinkit</h4>
+      <a href="campaigns.html">Kampanjat</a>
+      <a href="creatives.html">Mainokset</a>
+      <a href="placements.html">Mainospaikat</a>
+      <a href="reporting.html">Raportointi</a>
+    </nav>
+    <div class="app-footer-col">
+      <h4>Testaus</h4>
+      <a class="accent" href="/demopage/" target="_blank" rel="noopener">Demosivusto →</a>
+      <a href="ad-demo.html" target="_blank" rel="noopener">Mainostagin testisivu</a>
+    </div>
+  </div>
+  <div class="app-footer-bottom">© 2026 Louhi Ads · <span class="accent">Kouluprojekti</span></div>
+</footer>
+  <script src="js/api.js?v=7"></script>
+  <script src="js/ui.js?v=7"></script>
+  <script src="js/auth.js?v=7"></script>
+  <script src="js/reporting.js?v=7"></script>
 </body>
 </html>

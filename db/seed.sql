@@ -24,7 +24,11 @@ INSERT INTO placements (name, code, environment, width, height, status) VALUES
   ('Louhi.fi sivupalkki',            'louhi_website_sidebar', 'www',                     300, 600, 'active'),
   ('Domain Control Panel',           'louhi_domain_panel',    'Domain Control Panel',    728,  90, 'active'),
   ('Tukiportaali – banneri',         'louhi_support_banner',  'Tukiportaali',            728,  90, 'active'),
-  ('cPanel',                         'louhi_cpanel',          'cPanel',                  468,  60, 'inactive');
+  ('cPanel',                         'louhi_cpanel',          'cPanel',                  468,  60, 'inactive'),
+  -- Demosivun (demopage/) mainospaikat, ks. migrations/004_demopage_placements.sql
+  ('Demo hero',                      'louhi_demo_hero',        'LouhiDemo-sivusto',      300, 600, 'active'),
+  ('Demo banneri',                   'louhi_demo_banneri',     'LouhiDemo-sivusto',      728,  90, 'active'),
+  ('Demo sivun loppu',               'louhi_demo_sivun_loppu', 'LouhiDemo-sivusto',      300, 250, 'active');
 
 -- Kampanjat (vastaavat campaigns.html:n esimerkkirivejä)
 INSERT INTO campaigns (advertiser_id, name, start_time, end_time, status, utm_campaign)

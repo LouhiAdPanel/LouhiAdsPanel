@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mainostagin demo · Louhi Ads</title>
 <style>
-  body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; margin: 0; background: #F6F5F1; color: #1C2024; }
-  header { background: #14181D; color: #fff; padding: 16px 32px; font-weight: 600; }
+  body { font-family: Roboto, 'Open Sans', Helvetica, Verdana, Arial, sans-serif; margin: 0; background: #FFFFFF; color: #1A1A1A; }
+  header { background: #000000; color: #fff; padding: 16px 32px; font-weight: 600; }
   main { max-width: 1260px; margin: 0 auto; padding: 28px 32px 60px; }
-  .note { background: #E4EEF4; border-radius: 8px; padding: 14px 18px; margin-bottom: 28px; font-size: 14px; line-height: 1.5; }
+  .note { background: #FEF1DF; border-radius: 8px; padding: 14px 18px; margin-bottom: 28px; font-size: 14px; line-height: 1.5; }
   .slot { margin-bottom: 32px; }
-  .slot-label { font-size: 12px; color: #565D66; margin-bottom: 6px; font-family: 'Courier New', monospace; }
-  .louhi-ad { min-height: 20px; border: 1px dashed #D8D5CB; border-radius: 4px; padding: 6px; background: #fff; }
-  .louhi-ad:empty::after { content: 'Ei näytettävää mainosta (204) tai palvelin ei vastannut.'; color: #A6A296; font-size: 13px; }
+  .slot-label { font-size: 12px; color: #606060; margin-bottom: 6px; font-family: 'Courier New', monospace; }
+  .louhi-ad { min-height: 20px; border: 1px dashed #D5D7DA; border-radius: 4px; padding: 6px; background: #fff; }
+  .louhi-ad:empty::after { content: 'Ei näytettävää mainosta (204) tai palvelin ei vastannut.'; color: #8F8F8F; font-size: 13px; }
   code { background: #fff; padding: 1px 5px; border-radius: 3px; }
-  a { color: #1D5E89; }
+  a { color: #C97800; }
 </style>
 </head>
 <body>
@@ -44,6 +44,6 @@
     document.getElementById('slots').innerHTML = html;
   })();
 </script>
-<script src="louhi-ads.js?v=6" async></script>
+<script src="louhi-ads.js?v=7" async></script>
 </body>
 </html>

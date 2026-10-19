@@ -1,4 +1,19 @@
-/* Käyttäjät (vain Admin): listaus, luonti, muokkaus, poisto. */
+/* Käyttäjät-sivu (users.html, vain Admin): listaus, luonti, muokkaus, poisto.
+
+   Koko sivu on vain adminille: navigaatiolinkki on .admin-only, ja palvelin vaatii
+   admin-roolin kaikkiin /api/users-kutsuihin (editorille 403).
+
+   Admin voi:
+   - nähdä käyttäjät, roolin, tilan ja viimeisimmän kirjautumisen
+   - luoda käyttäjän, vaihtaa nimen, sähköpostin, roolin, tilan ja salasanan
+   - poistaa muita käyttäjiä (omaa tiliä ei voi poistaa)
+   Palvelin estää lisäksi tilanteen, jossa yhtään aktiivista adminia ei jäisi (409).
+
+   API:
+   - GET    /api/users        lista
+   - POST   /api/users        uusi käyttäjä (salasana pakollinen)
+   - PUT    /api/users/{id}   päivitys (tyhjä salasana = ei vaihdeta)
+   - DELETE /api/users/{id}   poisto */
 (() => {
   const tbody = document.getElementById('users-body');
   const countEl = document.getElementById('users-count');
@@ -10,6 +25,9 @@
     { value: 'admin', label: 'Admin – kaikki oikeudet' },
   ];
 
+  // Kentät riippuvat siitä, luodaanko uusi käyttäjä: salasana on pakollinen vain luonnissa.
+  // is_active on valintalistassa merkkijonona ('true'/'false'), koska <select> käsittelee
+  // vain tekstiä; muunnos booleaniksi tehdään toPayloadissa.
   const fields = (isNew) => [
     { name: 'name', label: 'Nimi', required: true, maxlength: 100 },
     { name: 'email', label: 'Sähköposti', type: 'email', required: true, maxlength: 200 },
@@ -23,6 +41,7 @@
 
   const roleLabel = (r) => (r === 'admin' ? 'Admin' : 'Editor');
 
+  /** Piirtää käyttäjätaulukon. Kirjautunut käyttäjä merkitään tekstillä "(sinä)". */
   const render = () => {
     const me = Auth.user();
     countEl.textContent = `Käyttäjät (${users.length})`;
@@ -37,9 +56,12 @@
       </tr>`).join('');
   };
 
+  /** Hakee käyttäjät ja piirtää taulukon. */
   const load = async () => {
     UI.tableMessage(tbody, COLS, 'Ladataan…');
     try {
+      // Odotetaan, että kirjautunut käyttäjä on haettu (auth.js), jotta "(sinä)" ja
+      // oman tilin poistoesto toimivat.
       await Auth.ready;
       users = await Api.get('/api/users');
       render();
@@ -48,8 +70,14 @@
     }
   };
 
+  /** Lomakkeen data -> API:n muoto: is_active 'true'/'false' -> boolean. */
   const toPayload = (data) => ({ ...data, is_active: data.is_active === 'true' });
 
+  /**
+   * Avaa luonti-/muokkauslomakkeen. user = null -> uusi käyttäjä.
+   * Salasanan pituus tarkistetaan jo selaimessa nopeaa palautetta varten; palvelin
+   * tarkistaa sen joka tapauksessa.
+   */
   const openEditor = (user) => {
     const isNew = !user;
     const isMe = user && Auth.user()?.id === user.id;
@@ -69,6 +97,7 @@
         UI.toast(isNew ? 'Käyttäjä luotu.' : 'Muutokset tallennettu.');
         load();
       },
+      // Omaa tiliä ei voi poistaa (ei Poista-painiketta), ettei admin lukitse itseään ulos.
       onDelete: isNew || isMe ? null : async () => {
         await Api.del(`/api/users/${user.id}`);
         UI.toast('Käyttäjä poistettu.');
@@ -77,6 +106,7 @@
     });
   };
 
+  // Event delegation: rivit piirretään uudelleen joka latauksessa, joten kuunnellaan tbodya.
   tbody.addEventListener('click', (e) => {
     const edit = e.target.closest('[data-edit]');
     if (edit) openEditor(users.find((u) => u.id === Number(edit.dataset.edit)));

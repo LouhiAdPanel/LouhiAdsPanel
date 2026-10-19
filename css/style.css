@@ -6,12 +6,12 @@
 
 /* ---------- 1. Design-tokenit ---------- */
 :root {
-  /* Kivi/paperi-sävyt — pääsisältö */
-  --stone-50:  #F6F5F1;
-  --stone-100: #FFFFFF;
-  --stone-200: #E8E6DF;
-  --stone-300: #D8D5CB;
-  --stone-400: #A6A296;
+  /* Louhi-linjaus: valkoinen pohja ja viileät harmaat */
+  --stone-50:  #F9F9F9;   /* erittäin vaalea harmaa: taulukon otsikot, hover */
+  --stone-100: #FFFFFF;   /* sivuston pohja ja kortit */
+  --stone-200: #E8E9EB;   /* viileä vaalea harmaa: reunat (sama kuin sivupalkki) */
+  --stone-300: #D5D7DA;
+  --stone-400: #8F8F8F;   /* harmaat apu- ja footer-tekstit */
 
   /* Liuskekivi-sävyt — sivupalkki ja teksti */
   --slate-950: #14181D;
@@ -20,14 +20,15 @@
   --slate-700: #3A424D;
   --slate-500: #6B7480;
 
-  --ink-900: #1C2024;
-  --ink-600: #565D66;
+  --ink-900: #1A1A1A;
+  --ink-600: #606060;     /* tummempi harmaa: toissijainen teksti */
 
-  /* Louhi-sininen — ensisijainen tunnusväri (atsuriitti) */
-  --azurite-700: #164A6E;
-  --azurite-600: #1D5E89;
-  --azurite-500: #2B7CAE;
-  --azurite-100: #E4EEF4;
+  /* Louhi-oranssi — ensisijainen tunnusväri.
+     (Muuttujien nimet ovat historiallisia: aiemmin sininen "atsuriitti".) */
+  --azurite-700: #C97800;   /* tumma oranssi: pienet linkkitekstit valkoisella */
+  --azurite-600: #F29100;   /* painikkeiden pohjaväri */
+  --azurite-500: #F9971C;   /* oranssit tekstit, hover ja aktiivinen valikko */
+  --azurite-100: #FEF1DF;   /* vaalea oranssi tausta */
 
   /* Tilaväreille */
   --malachite-600: #1B7F55;
@@ -40,11 +41,11 @@
   --slate-status-100: #E8EAEC;
 
   /* Typografia */
-  --font-display: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif;
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: Roboto, 'Open Sans', Helvetica, Verdana, Arial, sans-serif;
+  --font-body: Roboto, 'Open Sans', Helvetica, Verdana, Arial, sans-serif;
 
   /* Layout */
-  --sidebar-width: 248px;
+  --sidebar-width: 288px;
   --radius-sm: 4px;
   --radius-md: 8px;
   --shadow-card: 0 1px 2px rgba(20, 24, 29, 0.06);
@@ -57,7 +58,7 @@ html { -webkit-font-smoothing: antialiased; }
 
 body {
   font-family: var(--font-body);
-  background: var(--stone-50);
+  background: var(--stone-100);
   color: var(--ink-900);
   font-size: 14px;
   line-height: 1.5;
@@ -849,3 +850,112 @@ body:not(.role-admin) .admin-only { display: none !important; }
 .fit-list li span { color: var(--ink-600); font-size: 12px; }
 .no-campaign { color: var(--amber-600); font-weight: 500; }
 .cell-warn { color: var(--amber-600) !important; font-weight: 500; }
+
+
+/* ============================================================
+   11. Louhi-linjaus (graafinen ohjeistus)
+   - Fontit: Roboto, "Open Sans", Helvetica, Verdana, Arial
+   - Pohja valkoinen
+   - Sivupalkki 288 px: pohja #E8E9EB, teksti #606060.
+     Valikkopainike 268 × 49. Hover ja aktiivinen sivu: pohja #F9F9F9,
+     teksti oranssi #F9971C.
+   - Peruspainike: pohja #F29100, teksti #FFFFFF, 330 × 63, sisennys 8px 16px
+   - Footer: pohja #000000, tekstit #FFFFFF / #8F8F8F, korostukset #F9971C
+   ============================================================ */
+
+/* Sivupalkki */
+.sidebar {
+  background: #E8E9EB;
+  color: #606060;
+  border-right: 1px solid #DCDEE1;
+}
+.sidebar-brand { border-bottom: 1px solid #D5D7DA; padding: 22px 20px; }
+.brand-name { color: #1A1A1A; }
+.brand-mark { background: #F29100; color: #FFFFFF; }
+
+.sidebar-nav { padding: 16px 10px; gap: 2px; }   /* 10 + 268 + 10 = 288 */
+.nav-link {
+  width: 268px;
+  max-width: 100%;
+  height: 49px;
+  padding: 0 16px;
+  color: #606060;
+  font-size: 15px;
+  font-weight: 500;
+}
+.nav-link svg { opacity: 1; }
+.nav-link:hover,
+.nav-link.active {
+  background: #F9F9F9;
+  color: #F9971C;
+}
+
+.sidebar-footer { border-top: 1px solid #D5D7DA; }
+.avatar { background: #F9971C; color: #FFFFFF; }
+.user-name { color: #1A1A1A; }
+.user-role { color: #606060; }
+.user-actions button { color: #606060; }
+.user-actions button:hover { color: #F9971C; }
+
+/* Painikkeet */
+.btn-primary { background: #F29100; color: #FFFFFF; }
+.btn-primary:hover { background: #D98200; color: #FFFFFF; }
+.btn-ghost { color: var(--azurite-700); }
+.btn-ghost:hover { color: #F9971C; }
+.btn-secondary:hover { border-color: #F9971C; color: #C97800; }
+
+/* Sivun pääpainike (esim. "+ Luo uusi kampanja") ja kirjautumispainike: 330 × 63 */
+.topbar .btn-primary,
+.login-submit {
+  min-width: 330px;
+  min-height: 63px;
+  padding: 8px 16px;
+  justify-content: center;
+  font-size: 16px;
+}
+.login-submit { width: 100%; min-width: 0; }
+
+/* Kortit: kevyt reuna valkoisella pohjalla */
+.card, .section-card { border-color: #E8E9EB; }
+
+/* Kirjautumissivu valkoisella pohjalla */
+.login-page { background: #E8E9EB; }
+.login-card { box-shadow: 0 12px 40px rgba(0, 0, 0, 0.10); }
+
+/* Footer */
+.app-footer {
+  background: #000000;
+  color: #8F8F8F;
+  font-size: 14px;
+}
+.app-footer-inner {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 32px;
+  padding: 40px 40px 28px calc(var(--sidebar-width) + 40px);
+}
+.app-footer-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.app-footer-name { color: #FFFFFF; font-size: 16px; font-weight: 600; }
+.app-footer h4 { color: #FFFFFF; font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.app-footer-col { display: flex; flex-direction: column; gap: 6px; }
+.app-footer a { color: #8F8F8F; }
+.app-footer a:hover { color: #F9971C; }
+.app-footer .accent, .app-footer a.accent { color: #F9971C; }
+.app-footer-bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 16px 40px 20px calc(var(--sidebar-width) + 40px);
+  font-size: 12.5px;
+}
+
+@media (max-width: 760px) {
+  .nav-link { width: auto; height: 44px; white-space: nowrap; }
+  .topbar { flex-direction: column; }
+  .topbar .btn-primary { min-width: 0; width: 100%; }
+  .app-footer-inner { grid-template-columns: 1fr; padding: 32px 20px 20px; }
+  .app-footer-bottom { padding: 16px 20px; }
+}
+
+/* Sivupalkin harmaa jatkuu koko sisällön korkeudelle myös pitkillä sivuilla
+   (palkki itse on sticky ja 100vh korkea). */
+.app { background: linear-gradient(to right, #E8E9EB var(--sidebar-width), #FFFFFF var(--sidebar-width)); }
+@media (max-width: 760px) { .app { background: #FFFFFF; } }

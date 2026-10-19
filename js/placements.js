@@ -1,12 +1,29 @@
-/* Mainospaikat: listaus, luonti, muokkaus, poisto ja upotuskoodi. */
+/* Mainospaikat-sivu (placements.html): listaus, luonti, muokkaus, poisto ja upotuskoodi.
+
+   Käyttäjä voi:
+   - selata mainospaikkoja ja avata paikan upotuskoodin (kaikki käyttäjät)
+   - luoda, muokata ja poistaa mainospaikkoja (VAIN ADMIN; painikkeissa .admin-only,
+     palvelin tarkistaa oikeuden require_admin-riippuvuudella)
+
+   API:
+   - GET    /api/placements        lista
+   - POST   /api/placements        uusi paikka; palvelin muodostaa Placement ID:n (code) nimestä
+   - PUT    /api/placements/{id}   päivitys (code ei muutu)
+   - DELETE /api/placements/{id}   poisto
+
+   Placement ID (code) on tunniste, jolla sivustoille upotettu mainostagi pyytää mainoksia
+   (<div data-placement="...">). Siksi sitä ei voi muuttaa luonnin jälkeen. */
 (() => {
   const tbody = document.getElementById('placements-body');
   const countEl = document.getElementById('placements-count');
   const COLS = 6;
   let placements = [];
 
+  // Lomakkeen ympäristövaihtoehdot (Louhen palvelut, joihin mainospaikkoja sijoitetaan).
+  // Tietokannassa environment on vapaa teksti, joten listaa voi laajentaa tästä.
   const ENVIRONMENTS = ['Louhi Konsoli', 'www', 'Domain Control Panel', 'Tukiportaali', 'cPanel'];
 
+  // width/height ovat mainoksen MAKSIMIkoko: pienemmätkin mainokset kelpaavat tähän paikkaan.
   const fields = [
     { name: 'name', label: 'Nimi', required: true, maxlength: 150, placeholder: 'Louhi Konsoli – pääbanneri', wide: true },
     { name: 'environment', label: 'Ympäristö', type: 'select', required: true,
@@ -19,7 +36,13 @@
     { name: 'notes', label: 'Tekniset huomiot', type: 'textarea' },
   ];
 
-  /** Sama sääntö kuin palvelimella (backend/app/slug.py) – käytetään vain esikatseluun. */
+  /**
+   * Sama sääntö kuin palvelimella (backend/app/slug.py) – käytetään vain esikatseluun.
+   * Vaiheet: ääkköset perusmuotoon (ä -> a), pienet kirjaimet, muut merkit alaviivoiksi,
+   * reunojen alaviivat pois, etuliite louhi_ ja enintään 60 merkkiä.
+   * Lopullisen tunnuksen päättää aina palvelin (esim. lisää _2, jos tunnus on varattu).
+   * Esim. 'Louhi Konsoli – pääbanneri' -> 'louhi_konsoli_paabanneri'.
+   */
   const previewCode = (name) => {
     let slug = name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
       .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
@@ -28,7 +51,12 @@
     return slug.slice(0, 60).replace(/_+$/, '');
   };
 
-  /** Näyttää Placement ID:n lomakkeessa: uudelle esikatselu, olemassa olevalle lukittu arvo. */
+  /**
+   * Näyttää Placement ID:n lomakkeessa: uudelle esikatselu, olemassa olevalle lukittu arvo.
+   * Palauttaa funktion, jonka UI.openForm kutsuu (onRender), kun lomake on piirretty.
+   * Uudella paikalla tunnus päivittyy nimeä kirjoitettaessa, jotta käyttäjä näkee etukäteen,
+   * millä tunnuksella paikka upotetaan sivustoille.
+   */
   const attachCodePreview = (placement) => (form) => {
     const box = document.createElement('div');
     box.className = 'field field-wide';
@@ -56,6 +84,7 @@
     update();
   };
 
+  /** Piirtää mainospaikkataulukon. Muokkaa-painike näkyy vain adminille (.admin-only). */
   const render = () => {
     countEl.textContent = `Kaikki mainospaikat (${placements.length})`;
     if (!placements.length) {
@@ -76,6 +105,7 @@
       </tr>`).join('');
   };
 
+  /** Hakee mainospaikat palvelimelta ja piirtää taulukon. */
   const load = async () => {
     UI.tableMessage(tbody, COLS, 'Ladataan…');
     try {
@@ -86,6 +116,10 @@
     }
   };
 
+  /**
+   * Avaa luonti-/muokkauslomakkeen (vain admin). placement = null -> uusi mainospaikka.
+   * Luonnin jälkeen näytetään palvelimen muodostama Placement ID.
+   */
   const openEditor = (placement) => {
     const isNew = !placement;
     // Ympäristö, jota ei ole listalla (esim. lisätty API:n kautta), lisätään vaihtoehdoksi.
@@ -117,6 +151,13 @@
     });
   };
 
+  /**
+   * Näyttää mainospaikan upotuskoodin kopioitavaksi.
+   * Koodi = paikkamerkki-div (data-placement = Placement ID) + louhi-ads.js-skripti, joka
+   * hakee mainoksen palvelimelta ja piirtää sen diviin. Skriptin osoite muodostetaan
+   * nykyisestä originista, jotta koodi osoittaa samaan palvelimeen kuin paneeli.
+   * "Testaa demosivulla" avaa ad-demo.html:n, joka näyttää paikan mainoksen oikeasti.
+   */
   const showEmbed = (p) => {
     const origin = window.location.origin;
     const code =
@@ -133,6 +174,7 @@
         <a class="btn btn-secondary" href="/ad-demo.html?placement=${encodeURIComponent(p.code)}" target="_blank">Testaa demosivulla</a>
         <button class="btn btn-primary" data-copy>Kopioi</button>
       </div>`);
+    // Leikepöytä-API voi epäonnistua (esim. ei HTTPS:ää tai lupa evätty) -> ohjeistetaan käsin.
     dialog.querySelector('[data-copy]').addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(code);
@@ -143,6 +185,7 @@
     });
   };
 
+  // Event delegation: rivit piirretään uudelleen joka latauksessa, joten kuunnellaan tbodya.
   tbody.addEventListener('click', (e) => {
     const edit = e.target.closest('[data-edit]');
     const embed = e.target.closest('[data-embed]');

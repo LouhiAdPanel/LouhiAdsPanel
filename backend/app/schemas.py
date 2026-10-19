@@ -1,20 +1,37 @@
-"""Pydantic-mallit: validoivat hallintapaneelista tulevan datan ennen tietokantaa."""
+"""Pydantic-mallit: validoivat hallintapaneelista tulevan datan ennen tietokantaa.
+
+Kun reitin parametri on tyypiltään esim. ``body: AdvertiserIn``, FastAPI lukee
+pyynnön JSON-rungon, muuntaa sen malliksi ja tarkistaa kenttien säännöt
+(Field-rajat, pattern-säännölliset lausekkeet, Literal-arvot). Virheellinen data
+hylätään automaattisesti HTTP 422 -virheellä ennen kuin reitin koodia ajetaan.
+Mallit näkyvät myös /docs-sivulla.
+
+"In"-pääte = selaimesta palvelimelle tuleva data (luonti ja muokkaus). Kannan
+CHECK-ehdot (db/schema.sql) ovat toinen, varmistava suojakerros.
+Käyttäjät: routers/*.py.
+"""
 from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+# Literal = kenttä hyväksyy vain luetellut arvot (vastaa kannan CHECK-ehtoja).
 ActiveStatus = Literal["active", "inactive"]
 CampaignStatus = Literal["draft", "active", "paused", "archived"]
 
 
 class AdvertiserIn(BaseModel):
+    """Mainostajan luonti/muokkaus."""
+
+    # pattern ^https?:// sallii vain http(s)-osoitteet (ei esim. javascript:-linkkejä).
     name: str = Field(min_length=1, max_length=100)
     website_url: str | None = Field(default=None, pattern=r"^https?://")
     status: ActiveStatus = "active"
 
 
 class PlacementIn(BaseModel):
+    """Mainospaikan luonti/muokkaus. width/height = suurin sallittu mainoksen koko pikseleinä."""
+
     name: str = Field(min_length=1, max_length=150)
     # Placement ID muodostetaan automaattisesti nimestä (routers/placements.py).
     # Tunnusta ei voi muuttaa jälkikäteen, koska se on upotettu sivustojen koodiin.
@@ -28,6 +45,13 @@ class PlacementIn(BaseModel):
 
 
 class CampaignIn(BaseModel):
+    """Kampanjan luonti/muokkaus.
+
+    priority: suurempi luku = etusijalla mainosta valittaessa.
+    placement_ids: mainospaikat, joissa kampanjan mainokset näytetään
+    (tallennetaan erilliseen liitostauluun routers/campaigns.py:ssä).
+    """
+
     advertiser_id: int
     name: str = Field(min_length=1, max_length=150)
     start_time: datetime | None = None
@@ -35,10 +59,16 @@ class CampaignIn(BaseModel):
     priority: int = Field(default=0, ge=0, le=100)
     status: CampaignStatus = "draft"
     utm_campaign: str | None = Field(default=None, max_length=100)
+    # default_factory: jokainen olio saa oman tyhjän listan (ei jaettua oletuslistaa).
     placement_ids: list[int] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def check_dates(self):
+        """Kenttien väliset säännöt, jotka eivät mahdu yksittäisen kentän Fieldiin.
+
+        mode="after" = ajetaan, kun yksittäiset kentät on jo tarkistettu.
+        ValueError muuttuu automaattisesti HTTP 422 -virheeksi.
+        """
         if self.start_time and self.end_time and self.end_time <= self.start_time:
             raise ValueError("Päättymisajan on oltava aloitusajan jälkeen.")
         if self.status == "active" and not (self.start_time and self.end_time):
@@ -47,10 +77,18 @@ class CampaignIn(BaseModel):
 
 
 class CampaignStatusIn(BaseModel):
+    """Pelkän tilan vaihto (esim. keskeytys tai aktivointi) ilman koko kampanjan lähettämistä."""
+
     status: CampaignStatus
 
 
 class CreativeIn(BaseModel):
+    """Mainoksen (kuva + linkki) luonti/muokkaus.
+
+    Kuva ladataan ensin erikseen (media.py), ja tähän tulee sen /media/-osoite.
+    weight: painoarvo, kun samassa paikassa on useita mainoksia (0 = ei näytetä).
+    """
+
     campaign_id: int | None = Field(default=None, description="Valinnainen – mainos voi olla ilman kampanjaa")
     name: str = Field(min_length=1, max_length=150)
     image_url: str = Field(min_length=1, pattern=r"^(https?://|/media/)",

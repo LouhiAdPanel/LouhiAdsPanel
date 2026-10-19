@@ -4,18 +4,32 @@
    - Lisää body-elementille luokan role-admin / role-editor:
      .admin-only -elementit näkyvät vain adminille (ks. style.css)
    - Salasanan vaihto ja uloskirjautuminen
+
+   Käytetään: kaikilla kirjautumisen takana olevilla sivuilla (ei login.html).
+   Riippuvuudet: api.js (Api) ja ui.js (UI.esc, UI.openForm, UI.toast);
+   ladattava niiden jälkeen. Sivupalkin .sidebar-footer tulee HTML:stä.
+
+   HUOM: roolin mukainen piilotus on vain käyttöliittymän siistimistä.
+   Varsinainen oikeustarkistus tehdään aina backendissä (403-vastaus).
    ============================================================ */
 const Auth = (() => {
+  // Kirjautunut käyttäjä (/api/auth/me-vastaus); null kunnes haku valmistuu
   let current = null;
 
+  /** Nimikirjaimet avatariin: 'Matti Meikäläinen' -> 'MM'. Tyhjä nimi -> '?'. */
   const initials = (name) =>
     name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
 
   const ROLE_LABEL = { admin: 'Admin', editor: 'Editor' };
 
-  /** Salasanan vähimmäispituus tulee backendistä (MIN_PASSWORD_LENGTH). */
+  /** Salasanan vähimmäispituus tulee backendistä (MIN_PASSWORD_LENGTH).
+      Oletus 6 ennen kuin käyttäjätiedot on haettu. */
   const minPw = () => current?.min_password_length || 6;
 
+  /**
+   * Piirtää sivupalkin alaosaan käyttäjäkortin sekä salasana- ja uloskirjautumispainikkeet.
+   * Nimi escapetaan, koska se on käyttäjän syöttämää tietoa (XSS-esto).
+   */
   const renderSidebar = (user) => {
     const footer = document.querySelector('.sidebar-footer');
     if (!footer) return;
@@ -35,11 +49,17 @@ const Auth = (() => {
     footer.querySelector('[data-auth="password"]').addEventListener('click', changePassword);
   };
 
+  /** Kirjaa ulos (backend poistaa session) ja siirtyy kirjautumissivulle. */
   const logout = async () => {
     try { await Api.post('/api/auth/logout'); } catch { /* ohjataan joka tapauksessa */ }
     window.location.href = '/login.html';
   };
 
+  /**
+   * Avaa salasanan vaihtolomakkeen. Täsmäävyys ja pituus tarkistetaan jo tässä
+   * nopeaa palautetta varten; backend tarkistaa ne silti uudelleen, samoin
+   * nykyisen salasanan oikeellisuuden. Virheet näkyvät lomakeikkunassa.
+   */
   const changePassword = () => {
     UI.openForm({
       title: 'Vaihda salasana',
@@ -52,6 +72,7 @@ const Auth = (() => {
       onSubmit: async (data) => {
         if (data.new_password !== data.confirm) throw new Error('Uudet salasanat eivät täsmää.');
         if (data.new_password.length < minPw()) throw new Error(`Salasanan on oltava vähintään ${minPw()} merkkiä pitkä.`);
+        // confirm-kenttää ei lähetetä: se on vain käyttöliittymän tarkistusta varten
         await Api.put('/api/auth/password', {
           current_password: data.current_password,
           new_password: data.new_password,
@@ -61,8 +82,12 @@ const Auth = (() => {
     });
   };
 
+  // Haku käynnistyy heti skriptin latautuessa. Jos sessiota ei ole, Api ohjaa
+  // kirjautumissivulle (401). Sivuskriptit voivat odottaa käyttäjää:
+  //   Auth.ready.then((user) => { ... })  tai  await Auth.ready
   const ready = Api.get('/api/auth/me').then((user) => {
     current = user;
+    // role-admin / role-editor bodyssa: CSS piilottaa .admin-only-elementit editorilta
     document.body.classList.add(user.role === 'admin' ? 'role-admin' : 'role-editor');
     renderSidebar(user);
     // Etusivun tervehdys käyttäjän etunimellä
@@ -71,6 +96,7 @@ const Auth = (() => {
     return user;
   });
 
+  // Julkinen rajapinta (globaali Auth-olio)
   return {
     ready,                                   // Promise<user>
     user: () => current,
