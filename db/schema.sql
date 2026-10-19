@@ -92,7 +92,7 @@ CREATE TABLE advertisers (
 -- code: yksilöllinen, vain pienet kirjaimet, numerot ja alaviiva (CHECK),
 --       jotta se toimii turvallisesti HTML-attribuutissa ja URL:ssa.
 --       Muodostetaan nimestä (backend/app/slug.py) eikä sitä muuteta jälkikäteen.
--- width/height: mainoksen MAKSIMIkoko pikseleinä (CHECK > 0).
+-- width/height: mainospaikan koko pikseleinä (CHECK > 0); kuva skaalataan tähän kokoon.
 -- status: active / inactive / paused. Vain aktiivisessa paikassa jaetaan mainoksia.
 -- ---------------------------------------------------------------------
 CREATE TABLE placements (
@@ -157,8 +157,8 @@ CREATE INDEX idx_cp_placement ON campaign_placements(placement_id);
 -- Mainosaineistot (luku 7) – MVP: JPG/PNG + kohde-URL
 -- Mainos kuuluu mainostajalle. Kampanjaa ei tarvita: mainos yhdistetään
 -- mainospaikkoihin sijoituksilla (placings).
--- width/height = mainoksen koko. Mainos saa näkyä vain paikoissa, joiden
--- width/height (= maksimikoko) on vähintään yhtä suuri.
+-- width/height = kuvan koko. Kuva skaalataan näytettäessä mainospaikan kokoon,
+-- joten koko voi poiketa paikan koosta.
 -- width/height saavat olla NULL (esim. ulkoinen kuva-URL, jonka kokoa ei tiedetä).
 -- image_url: '/media/<nimi>' (ks. media_files) tai ulkoinen osoite.
 -- target_url: CHECK vaatii http(s)-osoitteen (~* = regex, kirjainkoko ei merkitse),

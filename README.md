@@ -90,7 +90,7 @@ sijoitetaan siihen Mainokset-sivulla. Tyhjä paikka näkyy katkoviivoitettuna.
 **Sijoitukset (placings):** mainos kuuluu mainostajalle, ja kampanja on valinnainen. Mainosta
 lisättäessä valitaan mainospaikat (vähintään yksi); jokaisesta tulee sijoitus, jolla on oma paino,
 prioriteetti, aikataulu ja valinnainen kampanja (taulu `placings`, migraatio `006_placings.sql`).
-Valittavissa ovat aktiiviset paikat, joihin kuva mahtuu – mainospaikan koko on mainoksen maksimikoko.
+Valittavissa ovat aktiiviset paikat (kampanjan mainokselle kampanjan paikat). Kuvan koko voi poiketa paikasta.
 Mainostagi skaalaa kuvan mittasuhteet säilyttäen mainospaikan kokoon. Näyttö viittaa sijoitukseen
 ja klikki näyttöön.
 

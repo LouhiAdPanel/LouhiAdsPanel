@@ -6,8 +6,9 @@
    - Mainos näytetään sijoitusten (placings) kautta: lomakkeella valitaan mainospaikat
      (vähintään yksi), ja jokaisesta paikasta tehdään sijoitus samoilla asetuksilla:
      kampanja, paino, prioriteetti ja aikataulu.
-   - Mainospaikan koko on mainoksen maksimikoko: paikat, joihin kuva ei mahdu, eivät ole
-     valittavissa. Pienempi kuva skaalataan näytettäessä paikan kokoon (louhi-ads.js).
+   - Kuvan koko voi poiketa mainospaikan koosta: kuva skaalataan näytettäessä paikan
+     kokoon mittasuhteet säilyttäen (louhi-ads.js). Jos mittasuhteet eroavat paljon,
+     paikan kohdalla näytetään varoitus (reunoille jää tyhjää), mutta valinta sallitaan.
    - Jos mainos liitetään kampanjaan, valittavissa ovat vain kampanjan mainospaikat
      (Kampanjat-sivulla valitut sallitut paikat). Palvelin tarkistaa saman.
 
@@ -118,13 +119,18 @@
   };
 
   /* ---------- Mainospaikkojen valinta ----------
-     Paikka on valittavissa vain, jos se on aktiivinen, kuva mahtuu siihen (molemmat mitat
-     <= paikan mitat) ja, kun kampanja on valittu, se kuuluu kampanjan mainospaikkoihin.
-     Palvelin tekee samat tarkistukset (creatives.py, _prepare); tämä on käyttäjälle
-     välitön palaute jo lomakkeella. */
+     Paikka on valittavissa, jos se on aktiivinen ja, kun kampanja on valittu, kuuluu
+     kampanjan mainospaikkoihin. Palvelin tekee samat tarkistukset (creatives.py, _prepare);
+     tämä on käyttäjälle välitön palaute jo lomakkeella. Kuvan koko ei estä valintaa. */
 
-  /** Mahtuuko w × h -kokoinen mainos mainospaikkaan p. */
-  const fits = (w, h, p) => w <= p.width && h <= p.height;
+  /**
+   * Poikkeavatko w × h -kuvan ja mainospaikan p mittasuhteet selvästi (yli 25 %)?
+   * Silloin skaalattuun mainokseen jää reunoille tyhjää tilaa.
+   */
+  const ratioDiffers = (w, h, p) => {
+    const r = (w / h) / (p.width / p.height);
+    return r > 1.25 || r < 1 / 1.25;
+  };
 
   /** Kampanjan sallittujen mainospaikkojen id:t (Set) tai null, jos kampanjaa ei ole valittu. */
   const campaignPlacementIds = (campaignId) => {
@@ -135,7 +141,9 @@
   /**
    * Päivittää mainospaikkavalinnan lomakkeen nykyisillä arvoilla (mitat ja kampanja).
    * Sopimattomat paikat poistetaan käytöstä ja niiden ruksi poistetaan, jotta lomake ei
-   * lähetä paikkoja, joissa mainosta ei voisi näyttää. Syy näytetään paikan nimen perässä.
+   * lähetä paikkoja, joissa mainosta ei voisi näyttää. Syy näytetään paikan nimen alla.
+   * Valittavissa olevien paikkojen kohdalla näytetään huomautus, jos kuvan mittasuhde
+   * poikkeaa paikasta (kuva skaalataan, reunoille jää tyhjää).
    */
   const updatePlacementPicker = (form) => {
     const w = Number(form.elements.width.value) || 0;
@@ -147,7 +155,8 @@
       let reason = '';
       if (allowed && !allowed.has(p.id)) reason = 'ei kampanjan paikka';
       else if (p.status !== 'active' && !input.checked) reason = 'ei aktiivinen';
-      else if (w && h && !fits(w, h, p)) reason = 'kuva on liian suuri';
+      const warn = !reason && w && h && ratioDiffers(w, h, p)
+        ? 'mittasuhde poikkeaa, reunoille jää tyhjää' : '';
       input.disabled = Boolean(reason);
       if (reason) input.checked = false;
       label.classList.toggle('is-disabled', Boolean(reason));
@@ -157,7 +166,8 @@
         note.className = 'check-note';
         label.append(note);
       }
-      note.textContent = reason ? ` – ${reason}` : '';
+      note.textContent = reason || warn ? ` – ${reason || warn}` : '';
+      note.classList.toggle('is-warn', Boolean(warn));
     });
   };
 
@@ -202,7 +212,7 @@
     { name: 'placement_ids', label: 'Mainospaikat *', type: 'checkboxes',
       tooltip: 'Valitse vähintään yksi. Jokaisesta paikasta tulee sijoitus. Kuva skaalataan '
         + 'näytettäessä mainospaikan kokoon.',
-      options: placements.map((p) => ({ value: p.id, label: `${p.name} (max ${p.width} × ${p.height})` })) },
+      options: placements.map((p) => ({ value: p.id, label: `${p.name} (${p.width} × ${p.height})` })) },
     { name: 'weight', label: 'Paino (0–100)', type: 'number', required: true, min: 0, max: 100,
       tooltip: 'Suhteellinen osuus näytöistä samassa paikassa saman prioriteetin mainosten kesken. 0 = ei näytetä.' },
     { name: 'priority', label: 'Prioriteetti', type: 'select', numeric: true, required: true,

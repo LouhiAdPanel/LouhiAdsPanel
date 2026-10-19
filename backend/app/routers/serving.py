@@ -35,8 +35,7 @@ NO_CACHE = {"Cache-Control": "no-store"}
 #     ja paikan on oltava kampanjan sallittu paikka (campaign_placements).
 #     Ilman kampanjaa sijoitus näkyy pelkän oman aikataulunsa mukaan.
 #   - weight > 0: painolla 0 sijoituksen voi "piilottaa" poistamatta sitä.
-#   - Kokosuodatus: mainos saa olla enintään paikan kokoinen; jos mainoksen mittoja
-#     ei tiedetä (NULL, esim. ulkoinen kuva), se hyväksytään.
+#   - Kokoa ei rajata: mainostagi skaalaa kuvan paikan kokoon (placement_width/height).
 # Prioriteetti ja painotettu arvonta tehdään Pythonissa (get_ad), ei SQL:ssä.
 ELIGIBLE_SQL = """
 SELECT pl.id AS placing_id, pl.campaign_id, pl.weight, pl.priority,
@@ -59,9 +58,6 @@ WHERE p.code = %s
        OR (c.status = 'active' AND c.start_time <= now() AND c.end_time > now()
            AND EXISTS (SELECT 1 FROM campaign_placements cp
                        WHERE cp.campaign_id = pl.campaign_id AND cp.placement_id = p.id)))
-  -- Mainospaikan koko on maksimikoko: liian suurta mainosta ei näytetä
-  AND (cr.width  IS NULL OR cr.width  <= p.width)
-  AND (cr.height IS NULL OR cr.height <= p.height)
 """
 # Kohdennussäännöt (targeting_rules, sijoituskohtaiset) lisätään tähän myöhemmin (luku 9).
 

@@ -989,14 +989,14 @@ body:not(.role-admin) .admin-only { display: none !important; }
   vertical-align: middle;
 }
 .help-tip:hover, .help-tip:focus { background: #F9971C; color: #FFFFFF; outline: none; }
-.help-tip:hover::after, .help-tip:focus::after {
-  content: attr(data-tip);
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 8px);
-  transform: translateX(-50%);
-  width: max-content;
-  max-width: 260px;
+.help-tip:focus-visible { box-shadow: 0 0 0 2px rgba(249, 151, 28, 0.35); }
+
+/* ?-ohjeen teksti (ui.js: attachTooltips). position: fixed ja JS-sijoittelu, jotta teksti ei
+   leikkaudu modaalin vierityslaatikon reunaan ja pysyy aina näkyvissä ruudun sisällä. */
+.tooltip-pop {
+  position: fixed;
+  z-index: 1000;
+  max-width: min(280px, calc(100vw - 16px));
   padding: 8px 10px;
   border-radius: var(--radius-sm);
   background: #1A1A1A;
@@ -1005,7 +1005,7 @@ body:not(.role-admin) .admin-only { display: none !important; }
   font-weight: 400;
   line-height: 1.4;
   white-space: normal;
-  z-index: 10;
+  pointer-events: none;
 }
 
 /* Monivalinta pudotusvalikkona (<details>) */
@@ -1089,3 +1089,5 @@ body:not(.role-admin) .admin-only { display: none !important; }
 .creative-footer { flex-wrap: wrap; gap: 10px; }
 .creative-footer > span:last-child { flex: 1 1 100%; }
 .creative-footer > span:last-child .btn { flex: 1; }
+/* Mainospaikan huomautus (valittavissa, mutta kuvan mittasuhde poikkeaa paikasta) */
+.check-note.is-warn { color: #C97800; }

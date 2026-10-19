@@ -25,7 +25,7 @@
   // Tietokannassa environment on vapaa teksti, joten listaa voi laajentaa tästä.
   const ENVIRONMENTS = ['Louhi Konsoli', 'www', 'Domain Control Panel', 'Tukiportaali', 'cPanel'];
 
-  // width/height ovat mainoksen MAKSIMIkoko: pienemmätkin mainokset kelpaavat tähän paikkaan.
+  // width/height ovat mainospaikan koko: mainostagi skaalaa kuvan tähän kokoon.
   // Kentät wireframen järjestyksessä (Nimi, Koodi, Leveys, Korkeus, Status).
   // Ympäristö on lisäksi pakollinen tieto (sprintin hyväksymiskriteeri, tietokannan sarake).
   // Funktio: Koodi on muokattaessa vain luku.

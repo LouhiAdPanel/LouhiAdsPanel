@@ -20,8 +20,8 @@ mukaan.
 Mainoksen tallennus on kaksivaiheinen: 1) frontend lataa kuvan /upload-reittiin, joka
 tallentaa sen tietokantaan (media.py) ja palauttaa osoitteen /media/<nimi>; 2) lomake
 tallennetaan POST/PUT-kutsulla, jossa image_url on tuo osoite. Kuvana voi olla myös
-ulkoinen URL. Mainoksen koko ei saa ylittää mainospaikan kokoa (paikan koko =
-maksimikoko); mainostagi skaalaa kuvan paikan kokoon (louhi-ads.js).
+ulkoinen URL. Kuvan koko voi poiketa mainospaikan koosta: mainostagi skaalaa kuvan
+mittasuhteet säilyttäen paikan kokoon (louhi-ads.js).
 """
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
@@ -103,8 +103,7 @@ def _prepare(conn, body: CreativeIn) -> tuple[dict, list[int]]:
     - Jos kampanja on annettu, valittujen paikkojen on oltava kampanjan sallittuja paikkoja.
     - Mitat luetaan ladatusta kuvasta (ei luoteta lomakkeen arvoihin).
     - Mainospaikkoja on valittava vähintään yksi, ja niiden on oltava olemassa.
-    - Mainoksen on mahduttava jokaiseen valittuun paikkaan: paikan koko = maksimikoko.
-      Pienempi kuva on sallittu; mainostagi skaalaa sen paikan kokoon.
+    - Kuvan kokoa ei rajata: mainostagi skaalaa isomman tai pienemmän kuvan paikan kokoon.
     Nostaa 422:n selkeällä suomenkielisellä viestillä, jos jokin ehto ei täyty.
     """
     if not conn.execute("SELECT 1 FROM advertisers WHERE id = %s", [body.advertiser_id]).fetchone():
@@ -120,7 +119,6 @@ def _prepare(conn, body: CreativeIn) -> tuple[dict, list[int]]:
     size = local_image_size(conn, data["image_url"])
     if size:
         data["width"], data["height"] = size
-    w, h = data["width"], data["height"]
 
     # dict.fromkeys poistaa tuplat mutta säilyttää järjestyksen
     ids = list(dict.fromkeys(body.placement_ids))
@@ -139,13 +137,6 @@ def _prepare(conn, body: CreativeIn) -> tuple[dict, list[int]]:
                 422, "Mainospaikat eivät kuulu kampanjan mainospaikkoihin: " + ", ".join(outside)
                 + ". Lisää ne kampanjaan Kampanjat-sivulla tai valitse kampanjan paikat.")
 
-    if w and h:  # ulkoisen kuvan kokoa ei välttämättä tiedetä -> ei voida tarkistaa
-        too_small = [p for p in places if w > p["width"] or h > p["height"]]
-        if too_small:
-            limits = ", ".join(f'{p["name"]} {p["width"]}×{p["height"]}' for p in too_small)
-            raise HTTPException(
-                422, f"Mainos ({w}×{h} px) on suurempi kuin mainospaikka: {limits}. "
-                     "Mainospaikan koko on mainoksen maksimikoko. Pienennä kuvaa tai poista paikka valinnoista.")
     return data, ids
 
 

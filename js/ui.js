@@ -166,7 +166,7 @@ const UI = (() => {
    * @param {*} value   nykyinen arvo (muokkaustilassa) tai undefined
    * @returns {string} HTML-merkkijono; kaikki tekstit escapetaan esc():llä
    */
-  /** ?-ohje kentän otsikon perään. Teksti näytetään hiiren alla ja näppäimistöfokuksessa (CSS). */
+  /** ?-ohje kentän otsikon perään. Teksti näytetään hiiren alla ja näppäimistöfokuksessa (ks. tooltipit alla). */
   const tip = (text) => text
     ? ` <span class="help-tip" tabindex="0" role="note" aria-label="Ohje: ${esc(text)}" data-tip="${esc(text)}">?</span>`
     : '';
@@ -557,6 +557,53 @@ const UI = (() => {
     dialog.showModal();
     return dialog;
   };
+
+  /* ---------- ?-ohjeiden tooltipit ----------
+     Teksti näytetään omassa elementissään (position: fixed) ja sijoitetaan JS:llä:
+     ensisijaisesti ?-merkin yläpuolelle keskitettynä, mutta siirrettynä ruudun sisään,
+     ja ?-merkin alle, jos yläpuolella ei ole tilaa. Pelkkä CSS (::after) leikkautui
+     modaalin vierityslaatikon (overflow) reunaan. Elementti lisätään samaan ikkunaan
+     (dialog) kuin ?-merkki, koska avoin modaali on selaimen ylimmällä tasolla (top layer)
+     ja peittäisi bodyyn lisätyn elementin. */
+  let tooltipEl = null;
+  const hideTooltip = () => { if (tooltipEl) { tooltipEl.remove(); tooltipEl = null; } };
+  const showTooltip = (anchor) => {
+    hideTooltip();
+    tooltipEl = document.createElement('div');
+    tooltipEl.className = 'tooltip-pop';
+    tooltipEl.setAttribute('role', 'tooltip');
+    tooltipEl.textContent = anchor.dataset.tip;
+    const dialog = anchor.closest('dialog');
+    (dialog || document.body).appendChild(tooltipEl);
+    const a = anchor.getBoundingClientRect();
+    const t = tooltipEl.getBoundingClientRect();
+    const margin = 8;
+    // Vaakasuunnassa pidetään teksti modaalin (tai ruudun) sisällä
+    const box = dialog ? dialog.getBoundingClientRect() : { left: 0, right: window.innerWidth };
+    const minLeft = Math.max(margin, box.left + margin);
+    const maxLeft = Math.min(window.innerWidth, box.right) - t.width - margin;
+    let left = a.left + a.width / 2 - t.width / 2;
+    left = Math.max(minLeft, Math.min(left, maxLeft));
+    let top = a.top - t.height - margin;
+    if (top < margin) top = a.bottom + margin;   // ei tilaa yläpuolella -> alle
+    tooltipEl.style.left = `${left}px`;
+    tooltipEl.style.top = `${top}px`;
+  };
+  // Event delegation koko dokumenttiin: toimii myös myöhemmin luoduissa lomakkeissa.
+  document.addEventListener('mouseover', (e) => {
+    const tipEl = e.target.closest?.('.help-tip');
+    if (tipEl) showTooltip(tipEl);
+  });
+  document.addEventListener('mouseout', (e) => {
+    if (e.target.closest?.('.help-tip')) hideTooltip();
+  });
+  document.addEventListener('focusin', (e) => {
+    if (e.target.classList?.contains('help-tip')) showTooltip(e.target);
+  });
+  document.addEventListener('focusout', hideTooltip);
+  // Vieritys tai ikkunan sulkeminen: piilotetaan, ettei teksti jää väärään kohtaan
+  document.addEventListener('scroll', hideTooltip, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTooltip(); });
 
   // Julkinen rajapinta: sivuskriptit käyttävät näitä muodossa UI.esc(...), UI.toast(...)
   return {
