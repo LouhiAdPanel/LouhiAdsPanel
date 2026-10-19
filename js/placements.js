@@ -9,7 +9,8 @@
    API:
    - GET    /api/placements        lista
    - POST   /api/placements        uusi paikka; Koodi-kenttä ehdotetaan nimestä, tyhjänä
-                                   palvelin muodostaa sen itse
+                                   palvelin muodostaa sen itse. Nimen on oltava yksilöllinen
+                                   (409); hyvin samankaltaisesta nimestä varoitetaan.
    - PUT    /api/placements/{id}   päivitys (koodi ei muutu)
    - DELETE /api/placements/{id}   poisto
 
@@ -30,7 +31,8 @@
   // Ympäristö on lisäksi pakollinen tieto (sprintin hyväksymiskriteeri, tietokannan sarake).
   // Funktio: Koodi on muokattaessa vain luku.
   const fields = (isNew) => [
-    { name: 'name', label: 'Nimi', required: true, maxlength: 150, placeholder: 'Louhi Konsoli – pääbanneri', wide: true },
+    { name: 'name', label: 'Nimi', required: true, maxlength: 150, placeholder: 'Louhi Konsoli – pääbanneri', wide: true,
+      help: 'Nimen on oltava yksilöllinen.' },
     { name: 'code', label: 'Koodi', required: isNew, maxlength: 64, pattern: '[a-z0-9_]{2,64}', wide: true,
       readonly: !isNew, placeholder: 'louhi_konsoli_paabanneri',
       help: isNew
@@ -58,6 +60,73 @@
     if (!slug) slug = 'mainospaikka';
     if (!slug.startsWith('louhi')) slug = `louhi_${slug}`;
     return slug.slice(0, 60).replace(/_+$/, '');
+  };
+
+  /* ---------- Nimen yksilöllisyys ----------
+     Kaksi samannimistä mainospaikkaa on helppo sekoittaa (esim. mainosta sijoitettaessa).
+     - Sama nimi (kirjainkoosta ja välilyönneistä riippumatta, "Demo hero" = "demo  HERO")
+       estetään. Palvelin tekee saman tarkistuksen (placements.py, 409).
+     - Hyvin samankaltaisesta nimestä (esim. "Demo-hero", "Demo heroo") varoitetaan, ja
+       tallennus kysyy vahvistuksen. */
+
+  /** Vertailuavain samalle nimelle: välilyönnit siistitty, pienet kirjaimet. */
+  const nameKey = (name) => name.trim().replace(/\s+/g, ' ').toLowerCase();
+  /** Väljempi avain: vain kirjaimet ja numerot ("Demo-hero" = "demo hero" = "DemoHero"). */
+  const looseKey = (name) => nameKey(name).replace(/[^\p{L}\p{N}]/gu, '');
+
+  /** Levenshtein-etäisyys: montako merkkiä pitää lisätä, poistaa tai vaihtaa. */
+  const editDistance = (a, b) => {
+    let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i += 1) {
+      const cur = [i];
+      for (let j = 1; j <= b.length; j += 1) {
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      }
+      prev = cur;
+    }
+    return prev[b.length];
+  };
+
+  /**
+   * Vertaa nimeä muihin mainospaikkoihin (muokattava paikka ohitetaan).
+   * Palauttaa { same: paikka | undefined, similar: paikka | undefined }.
+   * Samankaltainen = samat kirjaimet ja numerot, tai 1–2 merkin ero
+   * (lyhyillä, alle 10 merkin nimillä enintään 1).
+   */
+  const checkName = (name, selfId) => {
+    const others = placements.filter((p) => p.id !== selfId);
+    const key = nameKey(name);
+    const loose = looseKey(name);
+    if (!loose) return {};
+    const same = others.find((p) => nameKey(p.name) === key);
+    if (same) return { same };
+    const limit = loose.length < 10 ? 1 : 2;
+    const similar = others.find((p) => {
+      const other = looseKey(p.name);
+      return other === loose || (Math.abs(other.length - loose.length) <= limit
+        && editDistance(other, loose) <= limit);
+    });
+    return { similar };
+  };
+
+  /**
+   * Näyttää nimen tarkistuksen tuloksen Nimi-kentän alla kirjoittamisen aikana.
+   * UI.openForm kutsuu tätä (onRender) sekä uudella että muokattavalla paikalla.
+   */
+  const attachNameCheck = (form, selfId) => {
+    const name = form.elements.name;
+    const help = name.closest('.field').querySelector('.field-help');
+    const defaultHelp = help.textContent;
+    const update = () => {
+      const { same, similar } = checkName(name.value, selfId);
+      help.textContent = same ? `Mainospaikka nimellä "${same.name}" on jo olemassa – anna eri nimi.`
+        : similar ? `Huom: hyvin samankaltainen nimi on jo olemassa: "${similar.name}".`
+          : defaultHelp;
+      help.classList.toggle('cell-warn', Boolean(same || similar));
+      name.setCustomValidity(same ? 'Samanniminen mainospaikka on jo olemassa.' : '');
+    };
+    name.addEventListener('input', update);
+    update();
   };
 
   /**
@@ -134,8 +203,23 @@
       fields: f,
       values: placement || { status: 'active', environment: ENVIRONMENTS[0] },
       submitLabel: isNew ? 'Hyväksy' : 'Tallenna muutokset',
-      onRender: isNew ? attachCodeSuggestion : null,
+      onRender: (form) => {
+        attachNameCheck(form, placement ? placement.id : null);
+        if (isNew) attachCodeSuggestion(form);
+      },
       onSubmit: async (data) => {
+        // Sama nimi on estetty jo kentän tarkistuksessa (setCustomValidity). Hyvin
+        // samankaltaisesta nimestä kysytään vahvistus; muokattaessa vain, jos nimi muuttui.
+        const nameChanged = isNew || nameKey(data.name) !== nameKey(placement.name);
+        const { similar } = nameChanged ? checkName(data.name, placement ? placement.id : null) : {};
+        if (similar) {
+          const ok = await UI.confirm({
+            title: 'Samankaltainen nimi',
+            message: `Mainospaikka nimellä "${similar.name}" on jo olemassa. Tallennetaanko silti nimellä "${data.name.trim()}"?`,
+            confirmLabel: 'Tallenna silti',
+          });
+          if (!ok) return false; // lomake jää auki nimen korjaamista varten
+        }
         if (isNew) {
           await Api.post('/api/placements', data);
           UI.toast('Mainospaikka luotu.');
