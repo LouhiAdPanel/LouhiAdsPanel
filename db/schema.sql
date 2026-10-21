@@ -186,8 +186,9 @@ CREATE INDEX idx_creatives_advertiser ON creatives(advertiser_id);
 -- Sijoitus (kaavion PLACING): mainos tietyssä mainospaikassa
 -- Taulun nimi on monikossa (placings), koska PLACING on PostgreSQL:n varattu sana.
 -- Yksi rivi = "tämä mainos näkyy tässä paikassa näillä ehdoilla".
---   weight   = painotettu näyttöjako saman prioriteetin sijoitusten kesken (0 = ei näytetä)
---   priority = suurempi voittaa, kun samassa paikassa on useita sijoituksia
+--   priority = PAINOARVO 0–100 (lomakkeen Painoarvo, oletus 50). Osuus paikan näytöistä =
+--              painoarvo / paikan kaikkien painoarvojen summa. 0 = ei näytetä.
+--   weight   = ei enää käytössä (aiemman mallin jäänne, arvo aina 1)
 --   start_time / end_time = sijoituksen oma aikataulu (end_time NULL = toistaiseksi)
 --   status   = active / inactive / paused; mainoslomakkeelta poistettu paikka
 --              merkitään inactive-tilaan (ei poisteta), jotta tilastot säilyvät
@@ -208,7 +209,7 @@ CREATE TABLE placings (
     campaign_id   INTEGER,
     placement_id  INTEGER     NOT NULL REFERENCES placements(id) ON DELETE CASCADE,
     weight        INTEGER     NOT NULL DEFAULT 1 CHECK (weight BETWEEN 0 AND 100),
-    priority      INTEGER     NOT NULL DEFAULT 0 CHECK (priority BETWEEN 0 AND 100),
+    priority      INTEGER     NOT NULL DEFAULT 50 CHECK (priority BETWEEN 0 AND 100),
     start_time    TIMESTAMPTZ NOT NULL DEFAULT now(),
     end_time      TIMESTAMPTZ,
     status        TEXT        NOT NULL DEFAULT 'active'
@@ -223,6 +224,7 @@ CREATE TABLE placings (
 );
 -- Jakelu hakee "paikan sijoitukset", kampanjasivu "kampanjan sijoitukset"
 CREATE INDEX idx_placing_placement ON placings(placement_id);
+COMMENT ON COLUMN placings.priority IS 'Painoarvo 0–100 (0 = ei näytetä); osuus näytöistä = painoarvo / paikan painoarvojen summa';
 CREATE INDEX idx_placing_campaign  ON placings(campaign_id);
 
 -- ---------------------------------------------------------------------

@@ -2,7 +2,8 @@
    Toteutettu wireframejen "Mainospaikat / Uusi mainospaikka / Muokkaa mainospaikkaa" mukaan.
 
    Käyttäjä voi:
-   - selata mainospaikkoja ja avata paikan upotuskoodin (kaikki käyttäjät)
+   - selata mainospaikkoja, avata paikan upotuskoodin ja nähdä mainosten näkymis-
+     todennäköisyydet (Näkyvyys) (kaikki käyttäjät)
    - luoda, muokata ja poistaa mainospaikkoja (VAIN ADMIN; painikkeissa .admin-only,
      palvelin tarkistaa oikeuden require_admin-riippuvuudella). Poisto kysyy vahvistuksen.
 
@@ -170,6 +171,7 @@
         <td class="cell-muted">${p.width} × ${p.height}</td>
         <td>${UI.pill(p.status)}</td>
         <td class="cell-actions">
+          <button class="btn btn-small" data-visibility="${p.id}">Näkyvyys</button>
           <button class="btn btn-small admin-only" data-edit="${p.id}">Muokkaa</button>
           <button class="btn btn-small btn-small-danger admin-only" data-delete="${p.id}">Poista</button>
         </td>
@@ -286,11 +288,60 @@
     });
   };
 
+  /* ---------- Näkyvyys ----------
+     Näyttää, millä todennäköisyydellä kukin mainos näkyy mainospaikassa. Luvut tulevat
+     palvelimelta (GET /api/placements/{id}/visibility), joka käyttää samaa laskentaa kuin
+     oikea mainosjakelu (serving.py): todennäköisyys = mainoksen painoarvo / paikan
+     kaikkien mainosten painoarvojen summa. */
+
+  const fmtNum = (v) => String(v).replace('.', ',');
+
+  /** Avaa Näkyvyys-ikkunan: mainokset todennäköisyysjärjestyksessä palkkeineen. */
+  const showVisibility = async (p) => {
+    let data;
+    try {
+      data = await Api.get(`/api/placements/${p.id}/visibility`);
+    } catch (err) {
+      UI.toast(err.message, 'error');
+      return;
+    }
+    const rows = data.ads.map((a) => `
+      <tr>
+        <td>${UI.esc(a.creative_name)}
+          <span class="cell-sub">${a.campaign_id ? UI.esc(a.campaign_name) : 'Irtomainos (ei kampanjaa)'}</span></td>
+        <td>${a.priority}</td>
+        <td class="vis-share">
+          <span class="vis-bar"><span style="width:${Math.max(a.share, 0.5)}%"></span></span>
+          <strong>${fmtNum(a.share)} %</strong>
+        </td>
+      </tr>`).join('');
+    const statusNote = p.status === 'active' ? ''
+      : '<p class="form-error" style="display:block">Mainospaikka ei ole aktiivinen, joten siihen ei jaeta mainoksia ennen kuin se aktivoidaan.</p>';
+    UI.openInfo(`Näkyvyys: ${p.name}`, `
+      ${statusNote}
+      <p class="cell-muted" style="margin-bottom:12px">
+        Jokaisella sivulatauksella arvotaan yksi mainos. Todennäköisyys = mainoksen painoarvo /
+        paikan kaikkien mainosten painoarvojen summa${data.ads.length
+          ? ` (yhteensä ${data.ads.reduce((n, a) => n + a.priority, 0)})` : ''}.
+      </p>
+      ${data.ads.length ? `
+      <table class="data-table vis-table">
+        <thead><tr><th>Mainos</th><th>Painoarvo</th><th>Todennäköisyys</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>` : '<p class="table-message">Paikassa ei ole tällä hetkellä näytettäviä mainoksia, joten se jää tyhjäksi.</p>'}
+      ${data.hidden_count ? `<p class="cell-muted" style="margin-top:12px">
+        Lisäksi paikkaan on sijoitettu ${data.hidden_count === 1 ? '1 mainos, joka ei nyt ole'
+          : `${data.hidden_count} mainosta, jotka eivät nyt ole`} arvonnassa (esim. ei aktiivinen,
+        aikataulun ulkopuolella, kampanja ei käynnissä tai painoarvo 0).</p>` : ''}`);
+  };
+
   // Event delegation: rivit piirretään uudelleen joka latauksessa, joten kuunnellaan tbodya.
   tbody.addEventListener('click', (e) => {
     const edit = e.target.closest('[data-edit]');
     const del = e.target.closest('[data-delete]');
     const embed = e.target.closest('[data-embed]');
+    const vis = e.target.closest('[data-visibility]');
+    if (vis) showVisibility(placements.find((p) => p.id === Number(vis.dataset.visibility)));
     if (edit) openEditor(placements.find((p) => p.id === Number(edit.dataset.edit)));
     if (del) deletePlacement(placements.find((p) => p.id === Number(del.dataset.delete)));
     if (embed) showEmbed(placements.find((p) => p.id === Number(embed.dataset.embed)));

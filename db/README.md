@@ -15,6 +15,7 @@
 | `005_creative_placements.sql` | Mainoksen omat mainospaikat (välivaihe, korvautuu 006:lla) |
 | `006_placings.sql` | Uusi tietomalli: sijoitukset (`placings`, kaavion PLACING) |
 | `007_campaign_placements.sql` | Kampanjan sallitut mainospaikat (`campaign_placements`) |
+| `008_painoarvo.sql` | Paino ja prioriteetti yhdistetään painoarvoksi (`placings.priority`, 0–100). Vain datan muunnos, ei rakennemuutoksia. |
 
 ## Käyttöönotto (Windows, PowerShell)
 
@@ -57,8 +58,8 @@ campaigns *─* placements                 (campaign_placements = kampanjan sall
   "Odottaa alkamista" ja "Päättynyt" lasketaan päivämääristä näkymässä `v_campaign_status`.
   Sijoitus näkyy, kun sijoitus (ja sen mahdollinen kampanja) on aktiivinen ja voimassa.
   Kampanjan sijoituksen mainospaikan on lisäksi oltava kampanjan sallituissa paikoissa.
-- **Näyttöjako:** `placings.weight` saman prioriteetin sijoitusten kesken; korkein `priority` voittaa
-  (lomakkeella Matala 0 / Normaali 50 / Korkea 100).
+- **Näyttöjako:** jokainen näytettävä mainos arvotaan painoarvonsa (`placings.priority`, 0–100) suhteessa:
+  osuus = painoarvo / paikan painoarvojen summa. `weight` ja `campaigns.priority` eivät ole käytössä.
 - **Raportointi:** `v_daily_stats` antaa päivä × sijoitus -tason näytöt, klikit ja CTR:n
   (mukana mainostaja, mainos, kampanja ja paikka; Helsingin aikavyöhyke). Tästä tehdään myös CSV-vienti.
 - **Tietosuoja:** näyttö- ja klikkitauluihin ei tallenneta IP-osoitteita eikä käyttäjätunnisteita.

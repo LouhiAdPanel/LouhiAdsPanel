@@ -11,8 +11,8 @@ Endpointit (polun /api/creatives alla):
 Oikeudet: kaikki kirjautuneet (main.py lisää kirjautumisvaatimuksen).
 
 Tietomalli: mainos kuuluu mainostajalle (advertiser_id). Mainos näytetään sijoitusten
-(taulu placings) kautta: yksi sijoitus = mainos yhdessä mainospaikassa omalla painolla,
-prioriteetilla, aikataululla, tilalla ja valinnaisella kampanjalla. Lomakkeella valitaan
+(taulu placings) kautta: yksi sijoitus = mainos yhdessä mainospaikassa omalla painoarvolla
+(priority), aikataululla, tilalla ja valinnaisella kampanjalla. Lomakkeella valitaan
 mainospaikat (vähintään yksi) ja yhteiset asetukset, ja jokaisesta paikasta tehdään
 sijoitus. Kampanja EI ole pakollinen: ilman kampanjaa sijoitus näkyy oman aikataulunsa
 mukaan.
@@ -140,8 +140,9 @@ def _prepare(conn, body: CreativeIn) -> tuple[dict, list[int]]:
     return data, ids
 
 
-# Kampanjan mainoksilla ei ole omaa painoarvoa: kaikilla sama (tasajako).
-CAMPAIGN_WEIGHT = 1
+# Sarake weight on jäänne aiemmasta mallista (paino + prioriteetti). Painoarvo tallennetaan
+# nyt sarakkeeseen priority (tietokantakaavion PLACING.priority); weight on aina 1.
+UNUSED_WEIGHT = 1
 
 
 def _save_placings(conn, creative_id: int, body: CreativeIn, ids: list[int]) -> None:
@@ -149,10 +150,10 @@ def _save_placings(conn, creative_id: int, body: CreativeIn, ids: list[int]) -> 
     valinnoista poistetut merkitään 'inactive'. Niitä ei poisteta, koska sijoituksen
     poisto poistaisi myös sen näyttö- ja klikkitilastot.
 
-    Painoarvo on vain kampanjattomalla mainoksella. Kampanjan mainoksen sijoituksille
-    tallennetaan neutraali paino 1 (lomakkeelta tullut arvo ohitetaan), jolloin kampanjan
-    mainokset näytetään tasaisesti vuorotellen."""
-    weight = CAMPAIGN_WEIGHT if body.campaign_id else body.weight
+    Lomakkeen Painoarvo (0–100) tallennetaan sarakkeeseen priority kaikille mainoksille,
+    myös kampanjan mainoksille. Mainoksen osuus paikan näytöistä = painoarvo / paikan
+    kaikkien painoarvojen summa (serving.py)."""
+    weight = UNUSED_WEIGHT
     conn.execute(UPSERT_PLACINGS_SQL, {
         "advertiser_id": body.advertiser_id, "creative_id": creative_id,
         "campaign_id": body.campaign_id, "ids": ids, "weight": weight,

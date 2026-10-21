@@ -85,6 +85,7 @@ psql -U postgres -d louhiads -f ..\db\migrations\004_demopage_placements.sql    
 psql -U postgres -d louhiads -f ..\db\migrations\005_creative_placements.sql       # mainoksen mainospaikat
 psql -U postgres -d louhiads -f ..\db\migrations\006_placings.sql                  # sijoitukset (PLACING)
 psql -U postgres -d louhiads -f ..\db\migrations\007_campaign_placements.sql       # kampanjan sallitut paikat
+psql -U postgres -d louhiads -f ..\db\migrations\008_painoarvo.sql                 # painoarvo (paino + prioriteetti yhdeksi)
 ```
 
 Vaihtoehto kehityskoneella: rakenna kanta alusta (poistaa datan) komennolla
@@ -186,9 +187,17 @@ Virheet palautetaan suomeksi: 401 (ei kirjautunut), 403 (ei oikeuksia), 404 (ei 
 - Tunnusta ei voi muuttaa luonnin jälkeen, koska se on upotettu sivustojen koodiin.
 
 ### Mainoksen valinta (`/api/v1/ad`)
-Aktiivinen mainospaikka → aktiiviset kampanjat, joiden aikaväli on käynnissä → aktiiviset
-mainokset, joiden paino > 0 → korkeimman prioriteetin sijoitukset → painotettu arvonta →
-näyttö kirjataan. Jos sopivaa mainosta ei ole, vastaus on 204 ja mainospaikka jää tyhjäksi.
+1. Ehdokkaat: paikkaan sijoitetut mainokset, joiden paikka, sijoitus, mainos ja mainostaja ovat
+   aktiivisia ja aikataulu voimassa. Kampanjan mainoksella myös kampanjan on oltava käynnissä ja
+   paikan kampanjan sallittu paikka. Painoarvo > 0.
+2. Yksi mainos arvotaan painoarvojen suhteessa: todennäköisyys = mainoksen painoarvo / paikan
+   kaikkien painoarvojen summa. Painoarvo (0–100, oletus 50) annetaan mainoslomakkeella ja
+   tallennetaan sarakkeeseen `placings.priority` (tietokantakaavion PLACING.priority).
+   Sama sääntö koskee kampanjan mainoksia ja irtomainoksia. Sarake `weight` ei ole käytössä.
+3. Näyttö kirjataan. Jos ehdokkaita ei ole, vastaus on 204 ja mainospaikka jää tyhjäksi.
+
+Samat todennäköisyydet näkyvät Mainospaikat-sivun Näkyvyys-näkymässä
+(`GET /api/placements/{id}/visibility`).
 
 ## Testaus selaimessa
 

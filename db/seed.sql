@@ -60,26 +60,26 @@ FROM (VALUES
 JOIN advertisers a ON a.name = v.advertiser;
 
 -- Sijoitukset (placings): mainos + mainospaikka (+ valinnainen kampanja).
--- Kampanjan sijoitukset perivät kampanjan aikataulun ja prioriteetin. Painoarvo on vain
--- kampanjattomilla mainoksilla; kampanjan mainoksilla paino on aina 1 (tasajako).
+-- Kampanjan sijoitukset perivät kampanjan aikataulun. Painoarvo (priority, 0–100) on
+-- mainoskohtainen: osuus paikan näytöistä = painoarvo / paikan painoarvojen summa.
 INSERT INTO placings (advertiser_id, creative_id, campaign_id, placement_id,
                      weight, priority, start_time, end_time)
-SELECT cr.advertiser_id, cr.id, c.id, p.id, v.weight,
-       COALESCE(c.priority, 0),
+SELECT cr.advertiser_id, cr.id, c.id, p.id, 1,
+       v.painoarvo,
        COALESCE(c.start_time, now() - interval '14 days'),
        c.end_time
 FROM (VALUES
-  ('Banneri A',          'SaaShop Pipedrive Q4',     'louhi_console_main',      1),
-  ('Banneri B',          'SaaShop Pipedrive Q4',     'louhi_console_main',      1),
-  ('Banneri C',          'SaaShop Pipedrive Q4',     'louhi_domain_panel',      1),
-  ('Banneri C',          'SaaShop Pipedrive Q4',     'louhi_console_main',      1),
-  ('Cloud 1',            'Pilvi Cloud -nosto',       'louhi_console_main',      1),
-  ('Syys 1',             'Getafix syyskampanja',     'louhi_support_banner',    1),
-  ('Tiedote',            'Louhi cPanel -tiedote',    'louhi_cpanel',            1),
-  ('Sivupalkki',         'Goodi verkkosivu-banneri', 'louhi_website_sidebar',   1),
-  ('Louhi talon mainos', NULL,                       'louhi_demo_sivun_loppu',  1),
-  ('Louhi talon mainos', NULL,                       'louhi_demo_hero',         1)
-) AS v(creative, campaign, placement, weight)
+  ('Banneri A',          'SaaShop Pipedrive Q4',     'louhi_console_main',     60),
+  ('Banneri B',          'SaaShop Pipedrive Q4',     'louhi_console_main',     40),
+  ('Banneri C',          'SaaShop Pipedrive Q4',     'louhi_domain_panel',     50),
+  ('Banneri C',          'SaaShop Pipedrive Q4',     'louhi_console_main',     20),
+  ('Cloud 1',            'Pilvi Cloud -nosto',       'louhi_console_main',     50),
+  ('Syys 1',             'Getafix syyskampanja',     'louhi_support_banner',   50),
+  ('Tiedote',            'Louhi cPanel -tiedote',    'louhi_cpanel',           50),
+  ('Sivupalkki',         'Goodi verkkosivu-banneri', 'louhi_website_sidebar',  50),
+  ('Louhi talon mainos', NULL,                       'louhi_demo_sivun_loppu', 10),
+  ('Louhi talon mainos', NULL,                       'louhi_demo_hero',        10)
+) AS v(creative, campaign, placement, painoarvo)
 JOIN creatives  cr ON cr.name = v.creative
 JOIN placements p  ON p.code  = v.placement
 LEFT JOIN campaigns c ON c.name = v.campaign;

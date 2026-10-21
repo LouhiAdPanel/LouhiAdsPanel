@@ -3,13 +3,14 @@
 Mainospaikka on sivuston kohta, johon mainos näytetään (esim. etusivun banneri).
 Jokaisella paikalla on yksilöllinen code ("placement ID"), jonka sivusto upottaa
 mainostagiin (data-placement="..."); jakelu (serving.py) hakee mainoksen sen perusteella.
-Paikan leveys ja korkeus ovat suurin sallittu mainoksen koko.
+Paikan leveys ja korkeus ovat mainospaikan koko; mainostagi skaalaa kuvan siihen.
 
 Endpointit (polun /api/placements alla):
   GET    /api/placements          -> kaikki mainospaikat + aktiivisten kampanjoiden määrä
   GET    /api/placements/{id}     -> yksi mainospaikka
   POST   /api/placements          -> uusi mainospaikka         (vain admin)
   PUT    /api/placements/{id}     -> päivitys (code ei muutu)  (vain admin)
+  GET    /api/placements/{id}/visibility -> mainosten näkymistodennäköisyydet (kaikki)
   DELETE /api/placements/{id}     -> poisto                    (vain admin)
 
 Oikeudet: lukeminen kaikille kirjautuneille (kampanjalomake tarvitsee paikkalistan),
@@ -21,6 +22,7 @@ from ..auth import require_admin
 from ..db import delete_row, get_conn, insert_row, update_row
 from ..schemas import PlacementIn
 from ..slug import unique_code
+from .serving import ELIGIBLE_SQL, with_shares
 
 router = APIRouter(prefix="/api/placements", tags=["Mainospaikat"])
 
@@ -78,6 +80,36 @@ def get_placement(placement_id: int, conn=Depends(get_conn)):
     if not row:
         raise HTTPException(404, "Mainospaikkaa ei löytynyt.")
     return row
+
+
+@router.get("/{placement_id}/visibility")
+def placement_visibility(placement_id: int, conn=Depends(get_conn)):
+    """GET /api/placements/{placement_id}/visibility – mainosten näkymistodennäköisyydet.
+
+    Mainospaikat-sivun Näkyvyys-näkymä (kaikki kirjautuneet). Käyttää samaa ehdokashakua
+    (ELIGIBLE_SQL) ja samaa laskentaa (serving.py) kuin oikea mainosjakelu, joten luvut
+    vastaavat sitä, miten mainokset tällä hetkellä arvotaan: osuus = mainoksen painoarvo /
+    paikan kaikkien painoarvojen summa.
+    Palauttaa {placement, ads: [...osuus prosentteina], hidden_count}.
+    hidden_count = paikkaan sijoitetut mainokset, jotka eivät nyt ole arvonnassa (esim. ei
+    aktiivinen, aikataulun ulkopuolella, kampanja ei käynnissä tai painoarvo 0).
+    Virheet: 404 ei löydy.
+    """
+    place = conn.execute("SELECT id, name, code, status FROM placements WHERE id = %s",
+                         [placement_id]).fetchone()
+    if not place:
+        raise HTTPException(404, "Mainospaikkaa ei löytynyt.")
+    ads = with_shares(conn.execute(ELIGIBLE_SQL, [place["code"]]).fetchall())
+    placed = conn.execute(
+        "SELECT count(*) AS n FROM placings WHERE placement_id = %s AND status <> 'inactive'",
+        [placement_id]).fetchone()["n"]
+    keep = ("creative_id", "creative_name", "campaign_id", "campaign_name", "priority",
+            "share", "image_url")
+    return {
+        "placement": place,
+        "ads": [{k: a[k] for k in keep} for a in ads],
+        "hidden_count": max(placed - len(ads), 0),
+    }
 
 
 @router.post("", status_code=201, dependencies=[Depends(require_admin)])

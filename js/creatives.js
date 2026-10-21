@@ -5,7 +5,7 @@
    - Mainos kuuluu mainostajalle. Kampanja on valinnainen.
    - Mainos näytetään sijoitusten (placings) kautta: lomakkeella valitaan mainospaikat
      (vähintään yksi), ja jokaisesta paikasta tehdään sijoitus samoilla asetuksilla:
-     kampanja, paino, prioriteetti ja aikataulu.
+     kampanja, painoarvo ja aikataulu.
    - Kuvan koko voi poiketa mainospaikan koosta: kuva skaalataan näytettäessä paikan
      kokoon mittasuhteet säilyttäen (louhi-ads.js). Jos mittasuhteet eroavat paljon,
      paikan kohdalla näytetään varoitus (reunoille jää tyhjää), mutta valinta sallitaan.
@@ -43,14 +43,9 @@
   const STATUS_LABELS = { active: 'Aktiivinen', paused: 'Tauolla', inactive: 'Ei aktiivinen' };
   const statusPill = (status) => UI.pill(status, { paused: 'Tauolla' });
 
-  // Prioriteetin tasot kuten kampanjoissa: tallennetaan lukuna 0–100, suurempi voittaa.
-  const PRIORITIES = [
-    { value: 0, label: 'Matala' },
-    { value: 50, label: 'Normaali' },
-    { value: 100, label: 'Korkea' },
-  ];
-  /** Vanha vapaa luku (esim. 10) -> lähin taso, jotta valikossa näkyy aina jokin valinta. */
-  const priorityLevel = (v) => (v >= 75 ? 100 : v >= 25 ? 50 : 0);
+  // Painoarvo 0–100 (tietokannassa placings.priority). Mainoksen osuus paikan näytöistä =
+  // painoarvo / paikan kaikkien painoarvojen summa. Uuden mainoksen oletus on 50.
+  const DEFAULT_WEIGHT = 50;
 
   /* ---------- Suodatus ----------
      Suodattimet ovat Suodata-ikkunassa. Kampanjasuodatus tehdään palvelimella
@@ -183,7 +178,7 @@
 
   // Funktio eikä vakio: valintalistat ovat käytettävissä vasta loadLookupsin jälkeen.
   // Kentät jakautuvat kahteen osaan: mainoksen tiedot (mainostaja, nimi, kuva, linkki)
-  // ja sijoitusten yhteiset asetukset (kampanja, mainospaikat, paino, prioriteetti, aikataulu).
+  // ja sijoitusten yhteiset asetukset (kampanja, mainospaikat, painoarvo, aikataulu).
   const fields = (advertiserId) => [
     { name: 'name', label: 'Mainoksen nimi', required: true, maxlength: 150, placeholder: 'Banneri A' },
     { name: 'advertiser_id', label: 'Mainostaja', type: 'select', numeric: true, required: true,
@@ -213,15 +208,13 @@
       tooltip: 'Valitse vähintään yksi. Jokaisesta paikasta tulee sijoitus. Kuva skaalataan '
         + 'näytettäessä mainospaikan kokoon.',
       options: placements.map((p) => ({ value: p.id, label: `${p.name} (${p.width} × ${p.height})` })) },
-    // Painoarvo vain kampanjattomalle mainokselle (updateWeightField lukitsee kentän,
-    // kun kampanja on valittu). Kampanjan mainokset jaetaan tasan.
-    { name: 'weight', label: 'Paino (0–100)', type: 'number', required: true, min: 0, max: 100,
-      help: 'Vain mainokselle, joka ei kuulu kampanjaan.',
-      tooltip: 'Suhteellinen osuus näytöistä samassa paikassa saman prioriteetin mainosten kesken. '
-        + '0 = ei näytetä. Kampanjan mainoksilla ei ole painoarvoa: ne näytetään tasaisesti vuorotellen.' },
-    { name: 'priority', label: 'Prioriteetti', type: 'select', numeric: true, required: true,
-      tooltip: 'Kun samaan mainospaikkaan osuu useita mainoksia, korkeamman prioriteetin mainos näytetään ensin.',
-      options: PRIORITIES.map((p) => ({ value: p.value, label: p.label })) },
+    // Painoarvo (lähetetään kenttänä priority = tietokantakaavion PLACING.priority).
+    // Sama sääntö kaikille mainoksille, myös kampanjan mainoksille.
+    { name: 'priority', label: 'Painoarvo (0–100)', type: 'number', required: true, min: 0, max: 100,
+      help: 'Oletus 50. Suurempi arvo = useammin näkyvissä. 0 = ei näytetä.',
+      tooltip: 'Kaikki paikan mainokset näkyvät vuorotellen. Mainoksen osuus näytöistä = sen painoarvo '
+        + 'jaettuna paikan kaikkien mainosten painoarvojen summalla. Esim. 50 ja 10: osuudet 83 % ja 17 %. '
+        + 'Todennäköisyydet näkyvät Mainospaikat-sivun Näkyvyys-näkymässä.' },
     { name: 'start_date', label: 'Näkyy alkaen', type: 'date', help: 'Tyhjä = heti.' },
     { name: 'end_date', label: 'Näkyy asti', type: 'date', help: 'Tyhjä = toistaiseksi.' },
     { name: 'alt_text', label: 'ALT-teksti', maxlength: 200, wide: true, emptyValue: '',
@@ -247,24 +240,8 @@
   /**
    * UI.openForm kutsuu tätä (onRender), kun lomake on piirretty.
    * - Mainostajan vaihto rajaa kampanjavalinnan ja päivittää mainostajan numeron.
-   * - Kampanjan valinta ehdottaa kampanjan prioriteettia ja rajaa mainospaikat.
+   * - Kampanjan valinta rajaa mainospaikat kampanjan paikkoihin.
    */
-  /**
-   * Painoarvo on vain kampanjattomalla mainoksella. Kun kampanja valitaan, Paino-kenttä
-   * lukitaan ja tyhjennetään (disabled-kenttää ei myöskään vaadita); kun kampanja
-   * poistetaan, aiempi arvo palautetaan (tai oletus 1).
-   */
-  const updateWeightField = (form) => {
-    const input = form.elements.weight;
-    const inCampaign = Boolean(form.elements.campaign_id.value);
-    if (inCampaign && !input.disabled) input.dataset.saved = input.value;
-    if (!inCampaign && input.disabled) input.value = input.dataset.saved || 1;
-    if (inCampaign) input.value = '';
-    input.disabled = inCampaign;
-    input.placeholder = inCampaign ? 'Ei painoarvoa (kampanjan mainos)' : '';
-    input.closest('.field').classList.toggle('is-disabled', inCampaign);
-  };
-
   const attachFormLogic = (form) => {
     const advNo = form.closest('dialog').querySelector('[data-advertiser-no]');
     form.elements.advertiser_id.addEventListener('change', () => {
@@ -273,24 +250,17 @@
       updateCampaignSelect(form);
       updatePlacementPicker(form);
     });
-    form.elements.campaign_id.addEventListener('change', () => {
-      const c = campaigns.find((x) => x.id === Number(form.elements.campaign_id.value));
-      if (c) form.elements.priority.value = priorityLevel(c.priority);
-      updatePlacementPicker(form);
-      updateWeightField(form);
-    });
+    form.elements.campaign_id.addEventListener('change', () => updatePlacementPicker(form));
     // URL:lla annetun kuvan mitat luetaan myös (ui.js kutsuu onUploaded); varmistus tähän
     form.elements.width.addEventListener('change', () => updatePlacementPicker(form));
     updatePlacementPicker(form);
-    updateWeightField(form);
   };
 
   /** Listan mainos -> lomakkeen arvot (sijoitusten paikat ja päivät lomakkeen muotoon). */
   const toFormValues = (c) => ({
     ...c,
     placement_ids: c.placements.map((p) => p.id),
-    weight: c.weight ?? 1,
-    priority: priorityLevel(c.priority ?? 0),
+    priority: c.priority ?? DEFAULT_WEIGHT,
     start_date: UI.isoToDateInput(c.start_time),
     end_date: UI.isoToDateInput(c.end_time),
   });
@@ -335,7 +305,7 @@
     const isNew = !creative;
     const camp = campaigns.find((c) => String(c.id) === filters.campaign);
     const values = creative ? toFormValues(creative) : {
-      status: 'active', weight: 1, priority: camp ? priorityLevel(camp.priority) : 0, placement_ids: [],
+      status: 'active', priority: DEFAULT_WEIGHT, placement_ids: [],
       advertiser_id: camp ? camp.advertiser_id : '', campaign_id: camp ? camp.id : '',
     };
     UI.openForm({
@@ -359,8 +329,6 @@
         const { start_date, end_date, ...rest } = data;
         const body = {
           ...rest,
-          // Kampanjan mainoksella ei ole painoarvoa: lähetetään neutraali 1 (palvelin tekee saman)
-          weight: rest.campaign_id ? 1 : rest.weight,
           start_time: UI.dateInputToIso(start_date),
           end_time: UI.dateInputToIso(end_date, true),
         };
@@ -424,7 +392,7 @@
           <p class="creative-meta">Target URL:
             <a class="creative-url" href="${UI.esc(c.target_url)}" target="_blank" rel="noopener">${UI.esc(c.target_url)}</a></p>
           <p class="creative-meta">${c.placements.length
-            ? `${c.campaign_id ? '' : `Paino ${c.weight} · `}${c.placements.map((p) => UI.esc(p.name)).join(', ')}`
+            ? `Painoarvo ${c.priority} · ${c.placements.map((p) => UI.esc(p.name)).join(', ')}`
             : '<span class="no-campaign">Ei mainospaikkoja – valitse muokkaamalla</span>'}</p>
           <div class="creative-footer">
             ${statusPill(c.status)}

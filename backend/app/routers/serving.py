@@ -34,15 +34,13 @@ NO_CACHE = {"Cache-Control": "no-store"}
 #   - Jos sijoituksella on kampanja, myös kampanjan on oltava aktiivinen ja käynnissä,
 #     ja paikan on oltava kampanjan sallittu paikka (campaign_placements).
 #     Ilman kampanjaa sijoitus näkyy pelkän oman aikataulunsa mukaan.
-#   - weight > 0: painolla 0 kampanjattoman sijoituksen voi "piilottaa" poistamatta sitä.
-#     Kampanjan mainoksilla ei ole painoarvoa: ne arvotaan tasaisesti (paino 1).
+#   - priority (painoarvo) > 0: painoarvolla 0 sijoituksen voi "piilottaa" poistamatta sitä.
 #   - Kokoa ei rajata: mainostagi skaalaa kuvan paikan kokoon (placement_width/height).
-# Prioriteetti ja painotettu arvonta tehdään Pythonissa (get_ad), ei SQL:ssä.
+# Arvonta pisteiden perusteella tehdään Pythonissa (get_ad / score), ei SQL:ssä.
+# Nimet (creative_name, campaign_name) tarvitaan Mainospaikat-sivun Näkyvyys-näkymään.
 ELIGIBLE_SQL = """
-SELECT pl.id AS placing_id, pl.campaign_id,
-       -- Painoarvo vain kampanjattomalla mainoksella; kampanjan mainokset tasan (1)
-       CASE WHEN pl.campaign_id IS NULL THEN pl.weight ELSE 1 END AS weight,
-       pl.priority,
+SELECT pl.id AS placing_id, pl.campaign_id, cr.name AS creative_name, c.name AS campaign_name,
+       pl.priority,   -- painoarvo 0–100 (lomakkeen Painoarvo, kaavion PLACING.priority)
        cr.id AS creative_id, cr.image_url, cr.target_url, cr.alt_text, cr.width, cr.height,
        p.width AS placement_width, p.height AS placement_height
 FROM placements p
@@ -55,7 +53,7 @@ WHERE p.code = %s
   AND pl.status = 'active'
   AND cr.status = 'active'
   AND a.status  = 'active'
-  AND (pl.campaign_id IS NOT NULL OR pl.weight > 0)
+  AND pl.priority > 0   -- painoarvo 0 = ei näytetä
   AND pl.start_time <= now()
   AND (pl.end_time IS NULL OR pl.end_time > now())
   AND (pl.campaign_id IS NULL
@@ -64,6 +62,28 @@ WHERE p.code = %s
                        WHERE cp.campaign_id = pl.campaign_id AND cp.placement_id = p.id)))
 """
 # Kohdennussäännöt (targeting_rules, sijoituskohtaiset) lisätään tähän myöhemmin (luku 9).
+
+# ---------- Näkymistodennäköisyys ----------
+# Jokainen näytettävissä oleva mainos on mukana arvonnassa. Mainoksen painoarvo on
+# sijoituksen priority-sarake (tietokantakaavion PLACING.priority), jonka käyttäjä antaa
+# mainoslomakkeen Painoarvo-kentässä (0–100, oletus 50). Todennäköisyys näkyä:
+#     mainoksen painoarvo / paikan kaikkien mainosten painoarvojen summa
+# Sama sääntö koskee kampanjan mainoksia ja irtomainoksia. Esim. painoarvot 50 ja 10:
+# ensimmäinen näkyy 50/60 ≈ 83 %:ssa ja toinen 10/60 ≈ 17 %:ssa latauksista.
+# (Sarake weight on jäänne aiemmasta mallista: sitä ei enää käytetä, arvo on aina 1.)
+
+
+def score(candidate: dict) -> float:
+    """Mainoksen osuus arvonnassa = sen painoarvo (placings.priority)."""
+    return candidate["priority"]
+
+
+def with_shares(candidates: list[dict]) -> list[dict]:
+    """Lisää ehdokkaisiin todennäköisyyden prosentteina (Näkyvyys-näkymä,
+    routers/placements.py). Järjestys: suurin osuus ensin."""
+    total = sum(score(c) for c in candidates)
+    rows = [{**c, "share": round(100 * score(c) / total, 1) if total else 0.0} for c in candidates]
+    return sorted(rows, key=lambda r: -score(r))
 
 
 @router.get("/ad")
@@ -74,7 +94,8 @@ def get_ad(
 ):
     """GET /api/v1/ad?placement=<code> – valitsee ja palauttaa mainoksen (julkinen).
 
-    Valinta: ehdokkaat (ELIGIBLE_SQL) -> korkein prioriteetti -> painotettu arvonta.
+    Valinta: ehdokkaat (ELIGIBLE_SQL) -> arvonta painoarvojen suhteessa (score), joten
+    jokainen näytettävissä oleva mainos voi tulla valituksi.
     Valittu näyttö kirjataan impressions-tauluun.
     Palauttaa JSONin {creative_id, campaign_id, image_url (absoluuttinen), click_url,
     alt_text, width, height, placement_width, placement_height}, tai 204 No Content, jos
@@ -85,12 +106,8 @@ def get_ad(
     if not candidates:
         return Response(status_code=204, headers=NO_CACHE)
 
-    # Korkeimman prioriteetin sijoitukset ensin (oletuksena kaikilla 0 = ei vaikutusta),
-    # sitten painotettu satunnaisvalinta (luku 8).
-    # Esim. painot 3 ja 1 -> ensimmäinen näytetään keskimäärin 75 %:ssa kerroista.
-    top = max(c["priority"] for c in candidates)
-    candidates = [c for c in candidates if c["priority"] == top]
-    ad = random.choices(candidates, weights=[c["weight"] for c in candidates], k=1)[0]
+    # Painotettu satunnaisvalinta painoarvojen suhteessa (luku 8).
+    ad = random.choices(candidates, weights=[score(c) for c in candidates], k=1)[0]
 
     # RETURNING id: näytön id tarvitaan klikkiosoitteeseen (klikki kuuluu tähän näyttöön)
     impression = conn.execute(

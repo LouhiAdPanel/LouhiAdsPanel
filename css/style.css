@@ -1163,25 +1163,24 @@ body:not(.role-admin) .admin-only { display: none !important; }
 .field.is-disabled input:disabled { background: #F3F3F3; color: var(--stone-400); cursor: not-allowed; }
 
 /* ============================================================
-   14. Listauslaatikon rakenne
-   - .section-actions: sivun luontipainike (esim. "+ Lisää uusi mainos", "Vie CSV")
-     omalla rivillään laatikon yläreunassa, listan otsikon yläpuolella, vasemmalla.
-   - .section-toolbar: listan otsikko (esim. "Mainokset (7)") ja suodattimet / haku
-     rinnakkain vasemmassa reunassa.
+   14. Listauslaatikon otsikkorivi
+   Vasemmalla listan otsikko (esim. "Mainokset (7)") ja heti sen vieressä suodattimet /
+   haku; oikeassa reunassa sivun luontipainike (.toolbar-actions, esim. "+ Lisää uusi
+   mainos" tai "Vie CSV").
    ============================================================ */
-/* Painikepalkki: vaalea harmaa tausta ja ohut viiva erottavat sen listan otsikosta */
-.section-actions {
-  display: flex;
-  justify-content: flex-start;
-  gap: 10px;
-  padding: 14px 22px;
-  background: #F9F9F9;
-  border-bottom: 1px solid #E8E9EB;
-}
-.section-actions .btn-primary { white-space: nowrap; }
-.section-toolbar { justify-content: flex-start; column-gap: 24px; }
+.section-toolbar { justify-content: flex-start; column-gap: 20px; }
+.section-toolbar .filters { align-items: center; }
+.toolbar-actions { margin-left: auto; display: flex; gap: 10px; }
+.toolbar-actions .btn-primary { white-space: nowrap; }
 
 @media (max-width: 760px) {
-  .section-actions { padding: 12px 16px; }
-  .section-actions .btn-primary { width: 100%; }
+  .toolbar-actions { margin-left: 0; width: 100%; }
+  .toolbar-actions .btn-primary { width: 100%; }
 }
+
+/* Mainospaikan Näkyvyys-näkymä: todennäköisyys palkkina */
+.vis-table th, .vis-table td { padding: 10px 12px; }
+.vis-share { min-width: 170px; white-space: nowrap; }
+.vis-bar { display: inline-block; width: 90px; height: 8px; margin-right: 8px; vertical-align: middle;
+  background: #E8E9EB; border-radius: 4px; overflow: hidden; }
+.vis-bar > span { display: block; height: 100%; background: #F29100; }

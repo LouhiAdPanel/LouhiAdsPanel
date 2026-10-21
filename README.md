@@ -88,8 +88,8 @@ jolle on upotettu kolme mainospaikkaa: `louhi_demo_hero` (300 × 600), `louhi_de
 sijoitetaan siihen Mainokset-sivulla. Tyhjä paikka näkyy katkoviivoitettuna.
 
 **Sijoitukset (placings):** mainos kuuluu mainostajalle, ja kampanja on valinnainen. Mainosta
-lisättäessä valitaan mainospaikat (vähintään yksi); jokaisesta tulee sijoitus, jolla on oma paino,
-prioriteetti, aikataulu ja valinnainen kampanja (taulu `placings`, migraatio `006_placings.sql`).
+lisättäessä valitaan mainospaikat (vähintään yksi); jokaisesta tulee sijoitus, jolla on oma painoarvo
+(0–100), aikataulu ja valinnainen kampanja (taulu `placings`, migraatio `006_placings.sql`).
 Valittavissa ovat aktiiviset paikat (kampanjan mainokselle kampanjan paikat). Kuvan koko voi poiketa paikasta.
 Mainostagi skaalaa kuvan mittasuhteet säilyttäen mainospaikan kokoon. Näyttö viittaa sijoitukseen
 ja klikki näyttöön.

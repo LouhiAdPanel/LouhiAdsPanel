@@ -49,8 +49,8 @@ class PlacementIn(BaseModel):
 class CampaignIn(BaseModel):
     """Kampanjan luonti/muokkaus.
 
-    priority: suurempi luku = etusijalla mainosta valittaessa (oletus uusille
-    kampanjan sijoituksille). Paneelissa valinnat Matala 0 / Normaali 50 / Korkea 100.
+    priority: ei enää käytössä (sarake säilyy tietokannassa). Mainosten näkyvyys
+    määräytyy mainoksen omasta painoarvosta (placings.priority), ks. CreativeIn.
     placement_ids: kampanjan sallitut mainospaikat (taulu campaign_placements).
     Kampanjan mainokset voi sijoittaa vain näihin paikkoihin.
     """
@@ -92,7 +92,7 @@ class CreativeIn(BaseModel):
     Kuva ladataan ensin erikseen (media.py), ja tähän tulee sen /media/-osoite.
 
     Sijoitukset (placings): jokaisesta valitusta mainospaikasta (placement_ids, vähintään
-    yksi) tehdään sijoitus, jolla on samat weight, priority, start_time, end_time ja
+    yksi) tehdään sijoitus, jolla on sama painoarvo (priority), start_time, end_time ja
     campaign_id. Tarkistukset ovat routers/creatives.py:n _prepare-funktiossa, jotta
     virheviestit ovat suomeksi.
     """
@@ -111,10 +111,11 @@ class CreativeIn(BaseModel):
     # --- sijoitusten yhteiset asetukset ---
     placement_ids: list[int] = Field(default_factory=list,
                                      description="Mainospaikkojen id:t, joissa mainos näytetään")
-    # Painoarvo vain kampanjattomalle mainokselle; kampanjan mainoksella arvo ohitetaan (1).
-    weight: int = Field(default=1, ge=0, le=100,
-                        description="Painoarvo (0 = ei näytetä). Ohitetaan kampanjan mainokselta.")
-    priority: int = Field(default=0, ge=0, le=100, description="Suurempi voittaa samassa paikassa")
+    # Painoarvo 0–100 (lomakkeen Painoarvo; tietokannassa placings.priority, kaavion
+    # PLACING.priority). Osuus näytöistä = painoarvo / paikan painoarvojen summa. 0 = ei näytetä.
+    priority: int = Field(default=50, ge=0, le=100, description="Painoarvo 0–100 (0 = ei näytetä)")
+    # Vanha kenttä, ei enää käytössä (hyväksytään yhteensopivuuden vuoksi, arvo ohitetaan).
+    weight: int | None = Field(default=None, ge=0, le=100, description="Ei käytössä")
     start_time: datetime | None = Field(default=None, description="Tyhjä = heti")
     end_time: datetime | None = Field(default=None, description="Tyhjä = toistaiseksi")
 

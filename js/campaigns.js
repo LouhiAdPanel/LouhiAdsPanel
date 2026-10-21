@@ -5,7 +5,7 @@
    Käyttäjä (admin ja editor) voi:
    - hakea kampanjoita nimellä, tilalla ja mainostajalla (suodatus tehdään palvelimella)
    - luoda ja muokata kampanjoita: nimi, mainostaja, tila, aloitus- ja päättymispäivä,
-     sallitut mainospaikat, prioriteetti (Matala / Normaali / Korkea) ja UTM-tunniste
+     sallitut mainospaikat ja UTM-tunniste
    - poistaa kampanjan rivin Poista-painikkeella (vahvistuskysymyksen jälkeen)
    Kampanjan mainokset liitetään Mainokset-sivulla (sijoitukset): mainoksen voi sijoittaa
    vain kampanjan sallittuihin mainospaikkoihin.
@@ -35,15 +35,8 @@
   let advertisers = []; // lomakkeen ja suodattimen valintalistoja varten
   let placements = [];  // lomakkeen mainospaikkavalintaa varten
 
-  // Prioriteetin tasot (wireframe: pudotusvalikko). Tallennetaan lukuna 0–100,
-  // jotta jakelu voi verrata prioriteetteja; suurempi voittaa samassa paikassa.
-  const PRIORITIES = [
-    { value: 0, label: 'Matala' },
-    { value: 50, label: 'Normaali' },
-    { value: 100, label: 'Korkea' },
-  ];
-  /** Vanha vapaa luku (esim. 10) -> lähin taso, jotta valikossa näkyy aina jokin valinta. */
-  const priorityLevel = (v) => (v >= 75 ? 100 : v >= 25 ? 50 : 0);
+  // Kampanjalla ei ole prioriteettia eikä painoarvoa: mainosten näkyvyys määräytyy
+  // mainoksen omasta painoarvosta (Mainokset-sivu). Tiimin päätös, ks. migraatio 008.
 
   // Funktio eikä vakio: valintalistat ovat käytettävissä vasta loadLookupsin jälkeen.
   // Kenttien järjestys ja ?-ohjeet (tooltip) wireframen mukaan.
@@ -71,11 +64,6 @@
         value: p.id,
         label: `${p.name} (${p.width} × ${p.height})${p.status === 'active' ? '' : ' – ei aktiivinen'}`,
       })) },
-    { name: 'priority', label: 'Prioriteetti', type: 'select', numeric: true, wide: true,
-      tooltip: 'Kun samaan mainospaikkaan osuu useita mainoksia, korkeamman prioriteetin mainos '
-        + 'näytetään ensin. Toimii oletuksena kampanjan mainoksille.',
-      options: [{ value: '', label: 'Valitse prioriteetti' },
-        ...PRIORITIES.map((p) => ({ value: p.value, label: p.label }))] },
     { name: 'utm_campaign', label: 'UTM-kampanjatunniste', pattern: '[a-z0-9_\\-]+', wide: true,
       placeholder: 'syyskampanja_2026', help: 'Näkyy mainostajan analytiikassa (utm_campaign). Pienet kirjaimet, numerot, _ ja -.' },
   ];
@@ -84,13 +72,11 @@
    * Lomakkeen data -> API:n muoto (päivät aikaleimoiksi).
    * Lomakkeessa on pelkät päivät, API odottaa aikaleimoja: alku klo 00:00 ja
    * loppu klo 23:59:59, jotta päättymispäivä on vielä kokonaan mukana.
-   * Valitsematon prioriteetti tallennetaan Matalana (0).
    */
   const toPayload = (data) => {
     const { start_date, end_date, ...rest } = data;
     return {
       ...rest,
-      priority: rest.priority ?? 0,
       start_time: UI.dateInputToIso(start_date),
       end_time: UI.dateInputToIso(end_date, true),
     };
@@ -101,7 +87,6 @@
     ...c,
     start_date: UI.isoToDateInput(c.start_time),
     end_date: UI.isoToDateInput(c.end_time),
-    priority: priorityLevel(c.priority),
     placement_ids: c.placements.map((p) => p.id),
   });
 
@@ -164,7 +149,7 @@
     UI.openForm({
       title: isNew ? 'Luo uusi kampanja' : 'Muokkaa kampanjaa',
       fields: fields(),
-      values: campaign ? toFormValues(campaign) : { status: 'active', priority: '', placement_ids: [] },
+      values: campaign ? toFormValues(campaign) : { status: 'active', placement_ids: [] },
       submitLabel: isNew ? 'Luo kampanja' : 'Tallenna',
       onSubmit: async (data) => {
         const payload = toPayload(data);
