@@ -210,7 +210,7 @@
       options: placements.map((p) => ({ value: p.id, label: `${p.name} (${p.width} × ${p.height})` })) },
     // Painoarvo (lähetetään kenttänä priority = tietokantakaavion PLACING.priority).
     // Sama sääntö kaikille mainoksille, myös kampanjan mainoksille.
-    { name: 'priority', label: 'Painoarvo (0–100)', type: 'number', required: true, min: 0, max: 100,
+    { name: 'priority', label: 'Painoarvo (0–100)', type: 'number', required: true, min: 0, max: 100, wide: true,
       help: 'Oletus 50. Suurempi arvo = useammin näkyvissä. 0 = ei näytetä.',
       tooltip: 'Kaikki paikan mainokset näkyvät vuorotellen. Mainoksen osuus näytöistä = sen painoarvo '
         + 'jaettuna paikan kaikkien mainosten painoarvojen summalla. Esim. 50 ja 10: osuudet 83 % ja 17 %. '
