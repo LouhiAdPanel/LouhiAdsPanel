@@ -1161,3 +1161,24 @@ body:not(.role-admin) .admin-only { display: none !important; }
 /* Lomakekenttä, joka ei ole käytössä valintojen takia (esim. Paino kampanjan mainoksella) */
 .field.is-disabled label { color: var(--stone-400); }
 .field.is-disabled input:disabled { background: #F3F3F3; color: var(--stone-400); cursor: not-allowed; }
+
+/* ============================================================
+   14. Listauslaatikon rakenne
+   - .section-actions: sivun luontipainike (esim. "+ Lisää uusi mainos", "Vie CSV")
+     omalla rivillään laatikon yläreunassa, listan otsikon yläpuolella, vasemmalla.
+   - .section-toolbar: listan otsikko (esim. "Mainokset (7)") ja suodattimet / haku
+     rinnakkain vasemmassa reunassa.
+   ============================================================ */
+.section-actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 18px 22px 0;
+}
+.section-actions .btn-primary { white-space: nowrap; }
+.section-toolbar { justify-content: flex-start; column-gap: 24px; }
+
+@media (max-width: 760px) {
+  .section-actions { padding: 16px 16px 0; }
+  .section-actions .btn-primary { width: 100%; }
+}
