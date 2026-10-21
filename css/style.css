@@ -1169,16 +1169,19 @@ body:not(.role-admin) .admin-only { display: none !important; }
    - .section-toolbar: listan otsikko (esim. "Mainokset (7)") ja suodattimet / haku
      rinnakkain vasemmassa reunassa.
    ============================================================ */
+/* Painikepalkki: vaalea harmaa tausta ja ohut viiva erottavat sen listan otsikosta */
 .section-actions {
   display: flex;
   justify-content: flex-start;
   gap: 10px;
-  padding: 18px 22px 0;
+  padding: 14px 22px;
+  background: #F9F9F9;
+  border-bottom: 1px solid #E8E9EB;
 }
 .section-actions .btn-primary { white-space: nowrap; }
 .section-toolbar { justify-content: flex-start; column-gap: 24px; }
 
 @media (max-width: 760px) {
-  .section-actions { padding: 16px 16px 0; }
+  .section-actions { padding: 12px 16px; }
   .section-actions .btn-primary { width: 100%; }
 }
