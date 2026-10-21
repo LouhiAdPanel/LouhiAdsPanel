@@ -1157,3 +1157,7 @@ body:not(.role-admin) .admin-only { display: none !important; }
   .section-toolbar .filters { width: 100%; flex-wrap: wrap; }
   .section-toolbar .btn-primary { width: 100%; }
 }
+
+/* Lomakekenttä, joka ei ole käytössä valintojen takia (esim. Paino kampanjan mainoksella) */
+.field.is-disabled label { color: var(--stone-400); }
+.field.is-disabled input:disabled { background: #F3F3F3; color: var(--stone-400); cursor: not-allowed; }

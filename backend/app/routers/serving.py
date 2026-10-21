@@ -34,11 +34,15 @@ NO_CACHE = {"Cache-Control": "no-store"}
 #   - Jos sijoituksella on kampanja, myös kampanjan on oltava aktiivinen ja käynnissä,
 #     ja paikan on oltava kampanjan sallittu paikka (campaign_placements).
 #     Ilman kampanjaa sijoitus näkyy pelkän oman aikataulunsa mukaan.
-#   - weight > 0: painolla 0 sijoituksen voi "piilottaa" poistamatta sitä.
+#   - weight > 0: painolla 0 kampanjattoman sijoituksen voi "piilottaa" poistamatta sitä.
+#     Kampanjan mainoksilla ei ole painoarvoa: ne arvotaan tasaisesti (paino 1).
 #   - Kokoa ei rajata: mainostagi skaalaa kuvan paikan kokoon (placement_width/height).
 # Prioriteetti ja painotettu arvonta tehdään Pythonissa (get_ad), ei SQL:ssä.
 ELIGIBLE_SQL = """
-SELECT pl.id AS placing_id, pl.campaign_id, pl.weight, pl.priority,
+SELECT pl.id AS placing_id, pl.campaign_id,
+       -- Painoarvo vain kampanjattomalla mainoksella; kampanjan mainokset tasan (1)
+       CASE WHEN pl.campaign_id IS NULL THEN pl.weight ELSE 1 END AS weight,
+       pl.priority,
        cr.id AS creative_id, cr.image_url, cr.target_url, cr.alt_text, cr.width, cr.height,
        p.width AS placement_width, p.height AS placement_height
 FROM placements p
@@ -51,7 +55,7 @@ WHERE p.code = %s
   AND pl.status = 'active'
   AND cr.status = 'active'
   AND a.status  = 'active'
-  AND pl.weight > 0
+  AND (pl.campaign_id IS NOT NULL OR pl.weight > 0)
   AND pl.start_time <= now()
   AND (pl.end_time IS NULL OR pl.end_time > now())
   AND (pl.campaign_id IS NULL

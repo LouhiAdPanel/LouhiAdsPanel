@@ -140,13 +140,22 @@ def _prepare(conn, body: CreativeIn) -> tuple[dict, list[int]]:
     return data, ids
 
 
+# Kampanjan mainoksilla ei ole omaa painoarvoa: kaikilla sama (tasajako).
+CAMPAIGN_WEIGHT = 1
+
+
 def _save_placings(conn, creative_id: int, body: CreativeIn, ids: list[int]) -> None:
     """Tallentaa mainoksen sijoitukset: valitut paikat luodaan/päivitetään aktiivisiksi,
     valinnoista poistetut merkitään 'inactive'. Niitä ei poisteta, koska sijoituksen
-    poisto poistaisi myös sen näyttö- ja klikkitilastot."""
+    poisto poistaisi myös sen näyttö- ja klikkitilastot.
+
+    Painoarvo on vain kampanjattomalla mainoksella. Kampanjan mainoksen sijoituksille
+    tallennetaan neutraali paino 1 (lomakkeelta tullut arvo ohitetaan), jolloin kampanjan
+    mainokset näytetään tasaisesti vuorotellen."""
+    weight = CAMPAIGN_WEIGHT if body.campaign_id else body.weight
     conn.execute(UPSERT_PLACINGS_SQL, {
         "advertiser_id": body.advertiser_id, "creative_id": creative_id,
-        "campaign_id": body.campaign_id, "ids": ids, "weight": body.weight,
+        "campaign_id": body.campaign_id, "ids": ids, "weight": weight,
         "priority": body.priority, "start_time": body.start_time, "end_time": body.end_time,
     })
     conn.execute(

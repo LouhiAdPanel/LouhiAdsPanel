@@ -111,7 +111,9 @@ class CreativeIn(BaseModel):
     # --- sijoitusten yhteiset asetukset ---
     placement_ids: list[int] = Field(default_factory=list,
                                      description="Mainospaikkojen id:t, joissa mainos näytetään")
-    weight: int = Field(default=1, ge=0, le=100, description="Painoarvo (0 = ei näytetä)")
+    # Painoarvo vain kampanjattomalle mainokselle; kampanjan mainoksella arvo ohitetaan (1).
+    weight: int = Field(default=1, ge=0, le=100,
+                        description="Painoarvo (0 = ei näytetä). Ohitetaan kampanjan mainokselta.")
     priority: int = Field(default=0, ge=0, le=100, description="Suurempi voittaa samassa paikassa")
     start_time: datetime | None = Field(default=None, description="Tyhjä = heti")
     end_time: datetime | None = Field(default=None, description="Tyhjä = toistaiseksi")
