@@ -1091,3 +1091,69 @@ body:not(.role-admin) .admin-only { display: none !important; }
 .creative-footer > span:last-child .btn { flex: 1; }
 /* Mainospaikan huomautus (valittavissa, mutta kuvan mittasuhde poikkeaa paikasta) */
 .check-note.is-warn { color: #C97800; }
+
+/* ============================================================
+   13. Yläpalkki koko sivun levyisenä
+   Logo vasemmassa yläkulmassa, käyttäjä ja tilitoiminnot (Vaihda salasana,
+   Kirjaudu ulos) oikeassa reunassa (js/auth.js piirtää .app-header-user-osan).
+   Sivupalkki alkaa yläpalkin alta. Sivun pääpainikkeet ("+ Lisää uusi mainos",
+   "+ Luo uusi kampanja") ovat listan otsikkorivillä suodattimien vieressä.
+   ============================================================ */
+:root { --header-height: 64px; }
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 24px 0 20px;
+  background: #FFFFFF;
+  border-bottom: 1px solid #DCDEE1;
+}
+.app-header-brand { display: flex; align-items: center; gap: 10px; color: #1A1A1A; white-space: nowrap; flex-shrink: 0; }
+.app-header-brand:hover { color: #1A1A1A; }
+.app-header-brand .brand-name { font-size: 18px; font-weight: 700; }
+
+.app-header-user { display: flex; align-items: center; gap: 20px; min-width: 0; }
+.app-header-user .user-chip { gap: 10px; }
+.app-header-user .user-name { font-size: 14px; font-weight: 600; }
+.app-header-user .user-role { font-size: 12px; }
+.app-header-user .user-actions {
+  margin-top: 0;
+  gap: 4px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  padding-left: 20px;
+  border-left: 1px solid #DCDEE1;
+}
+.app-header-user .user-actions button {
+  font-size: 13.5px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+}
+.app-header-user .user-actions button:hover { background: #F9F9F9; text-decoration: none; }
+
+/* Sivupalkki yläpalkin alla: tarttuu yläpalkin alareunaan ja täyttää loput ruudusta */
+.sidebar { top: var(--header-height); height: calc(100vh - var(--header-height)); }
+.sidebar-nav { padding-top: 20px; }
+
+/* Listan otsikkorivin pääpainike: sama korkeus kuin suodattimilla */
+.section-toolbar .filters { align-items: center; }
+.section-toolbar .btn-primary { white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .app-header { padding: 0 12px; }
+  .app-header-user .user-text { display: none; }          /* pelkät nimikirjaimet */
+  .app-header-user { gap: 8px; }
+  .app-header-user .user-actions { padding-left: 8px; }
+  .app-header-user .user-actions button { padding: 6px 4px; font-size: 12.5px; }
+  .app-header-brand .brand-name { font-size: 16px; }
+  .sidebar { top: 0; height: auto; }
+  .sidebar-nav { padding-top: 8px; }
+  .section-toolbar .filters { width: 100%; flex-wrap: wrap; }
+  .section-toolbar .btn-primary { width: 100%; }
+}

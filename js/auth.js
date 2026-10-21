@@ -1,5 +1,5 @@
 /* ============================================================
-   LOUHI ADS — kirjautuneen käyttäjän tiedot sivupalkkiin
+   LOUHI ADS — kirjautuneen käyttäjän tiedot yläpalkkiin
    - Hakee /api/auth/me ja näyttää nimen, roolin ja nimikirjaimet
    - Lisää body-elementille luokan role-admin / role-editor:
      .admin-only -elementit näkyvät vain adminille (ks. style.css)
@@ -7,7 +7,7 @@
 
    Käytetään: kaikilla kirjautumisen takana olevilla sivuilla (ei login.html).
    Riippuvuudet: api.js (Api) ja ui.js (UI.esc, UI.openForm, UI.toast);
-   ladattava niiden jälkeen. Sivupalkin .sidebar-footer tulee HTML:stä.
+   ladattava niiden jälkeen. Yläpalkin paikka .app-header-user tulee HTML:stä.
 
    HUOM: roolin mukainen piilotus on vain käyttöliittymän siistimistä.
    Varsinainen oikeustarkistus tehdään aina backendissä (403-vastaus).
@@ -27,16 +27,17 @@ const Auth = (() => {
   const minPw = () => current?.min_password_length || 6;
 
   /**
-   * Piirtää sivupalkin alaosaan käyttäjäkortin sekä salasana- ja uloskirjautumispainikkeet.
+   * Piirtää yläpalkin oikeaan reunaan käyttäjän (nimikirjaimet, nimi, rooli) sekä
+   * salasana- ja uloskirjautumispainikkeet. Paikka .app-header-user tulee HTML:stä.
    * Nimi escapetaan, koska se on käyttäjän syöttämää tietoa (XSS-esto).
    */
-  const renderSidebar = (user) => {
-    const footer = document.querySelector('.sidebar-footer');
-    if (!footer) return;
-    footer.innerHTML = `
+  const renderUser = (user) => {
+    const box = document.querySelector('.app-header-user');
+    if (!box) return;
+    box.innerHTML = `
       <div class="user-chip">
-        <span class="avatar">${UI.esc(initials(user.name))}</span>
-        <div>
+        <span class="avatar" aria-hidden="true">${UI.esc(initials(user.name))}</span>
+        <div class="user-text">
           <span class="user-name">${UI.esc(user.name)}</span>
           <span class="user-role">${ROLE_LABEL[user.role] || user.role}</span>
         </div>
@@ -45,8 +46,8 @@ const Auth = (() => {
         <button type="button" data-auth="password">Vaihda salasana</button>
         <button type="button" data-auth="logout">Kirjaudu ulos</button>
       </div>`;
-    footer.querySelector('[data-auth="logout"]').addEventListener('click', logout);
-    footer.querySelector('[data-auth="password"]').addEventListener('click', changePassword);
+    box.querySelector('[data-auth="logout"]').addEventListener('click', logout);
+    box.querySelector('[data-auth="password"]').addEventListener('click', changePassword);
   };
 
   /** Kirjaa ulos (backend poistaa session) ja siirtyy kirjautumissivulle. */
@@ -89,7 +90,7 @@ const Auth = (() => {
     current = user;
     // role-admin / role-editor bodyssa: CSS piilottaa .admin-only-elementit editorilta
     document.body.classList.add(user.role === 'admin' ? 'role-admin' : 'role-editor');
-    renderSidebar(user);
+    renderUser(user);
     // Etusivun tervehdys käyttäjän etunimellä
     const greeting = document.getElementById('greeting');
     if (greeting) greeting.textContent = `Terve, ${user.name.split(' ')[0]}`;
