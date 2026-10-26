@@ -423,11 +423,52 @@ const UI = (() => {
   });
 
   /** Vahvistuskysymys (esim. poisto). Palauttaa true, jos käyttäjä vahvistaa. */
-  const confirmDialog = async ({ title = 'Vahvista', message, confirmLabel = 'Poista', cancelLabel = 'Peruuta' }) =>
+  const confirmDialog = async ({ title = 'Vahvista', message, confirmLabel = 'Poista', cancelLabel = 'Peruuta',
+                                 confirmCls = 'btn-danger' }) =>
     (await choiceDialog({
       title, message,
-      buttons: [{ value: false, label: cancelLabel }, { value: true, label: confirmLabel, cls: 'btn-danger' }],
+      buttons: [{ value: false, label: cancelLabel }, { value: true, label: confirmLabel, cls: confirmCls }],
     })) === true;
+
+  /**
+   * Ilmoitusikkuna (wireframet: esim. "Kampanja luotu", "Salasanasi on vaihdettu"):
+   * pelkkä viesti ja sulkuruksi (×), sulkeutuu myös Esc-näppäimellä ja klikkaamalla
+   * ikkunan ulkopuolelle. Palauttaa lupauksen, joka ratkeaa, kun ikkuna suljetaan.
+   * type 'error' näyttää viestin punaisena (virheilmoitus).
+   */
+  const noticeDialog = ({ title = '', message, type = 'success' }) => new Promise((resolve) => {
+    const dialog = document.createElement('dialog');
+    dialog.className = `modal modal-small modal-notice is-${type}`;
+    dialog.setAttribute('role', type === 'error' ? 'alertdialog' : 'dialog');
+    dialog.innerHTML = `
+      <header class="modal-header">
+        <h2>${esc(title)}</h2>
+        <button type="button" class="modal-close" aria-label="Sulje">×</button>
+      </header>
+      <div class="modal-body"><p class="notice-message">${esc(message)}</p></div>`;
+    document.body.appendChild(dialog);
+    const done = () => { dialog.close(); dialog.remove(); resolve(); };
+    dialog.querySelector('.modal-close').addEventListener('click', done);
+    dialog.addEventListener('cancel', (e) => { e.preventDefault(); done(); });
+    dialog.addEventListener('click', (e) => { if (e.target === dialog) done(); });
+    dialog.showModal();
+    dialog.querySelector('.modal-close').focus();
+  });
+
+  /**
+   * Vaihtaa lomakkeen monivalinnan (type 'multiselect') vaihtoehdot lennosta, esim. kun
+   * kampanjalomakkeen mainostaja vaihtuu ja Mainokset-listan pitää näyttää sen mainokset.
+   * selected = valittuina pidettävät arvot.
+   */
+  const setMultiselectOptions = (form, name, options, selected = []) => {
+    const box = form.querySelector(`[data-multiselect="${name}"]`);
+    if (!box) return;
+    const sel = new Set(selected.map(String));
+    box.querySelector('.check-group').innerHTML = options.length
+      ? options.map((o) => `<label class="check"><input type="checkbox" name="${name}" value="${esc(o.value)}" ${sel.has(String(o.value)) ? 'checked' : ''}> ${esc(o.label)}</label>`).join('')
+      : `<span class="cell-muted">${esc(box.dataset.empty || 'Ei vaihtoehtoja')}</span>`;
+    box.dispatchEvent(new Event('change'));   // päivittää yhteenvedon (attachMultiselect)
+  };
 
   /**
    * Avaa modaalisen lomakeikkunan (ks. parametrit yllä olevasta kommentista).
@@ -609,5 +650,6 @@ const UI = (() => {
   return {
     esc, fmtInt, fmtPct, fmtDate, fmtRange, isoToDateInput, dateInputToIso,
     STATUS, pill, tableMessage, toast, openForm, openInfo, choiceDialog, confirm: confirmDialog,
+    notice: noticeDialog, setMultiselectOptions,
   };
 })();

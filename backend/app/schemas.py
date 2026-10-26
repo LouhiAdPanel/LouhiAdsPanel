@@ -64,6 +64,9 @@ class CampaignIn(BaseModel):
     utm_campaign: str | None = Field(default=None, max_length=100)
     # default_factory: jokainen olio saa oman tyhjän listan (ei jaettua oletuslistaa).
     placement_ids: list[int] = Field(default_factory=list)
+    # Kampanjaan liitettävät mainokset (lomakkeen monivalinta "Mainokset"). None = ei muuteta
+    # (esim. vanhat kutsut ilman kenttää). Ks. routers/campaigns.py, _set_creatives.
+    creative_ids: list[int] | None = None
 
     @model_validator(mode="after")
     def check_dates(self):

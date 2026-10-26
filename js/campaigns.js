@@ -5,7 +5,7 @@
    Käyttäjä (admin ja editor) voi:
    - hakea kampanjoita nimellä, tilalla ja mainostajalla (suodatus tehdään palvelimella)
    - luoda ja muokata kampanjoita: nimi, mainostaja, tila, aloitus- ja päättymispäivä,
-     sallitut mainospaikat ja UTM-tunniste
+     sallitut mainospaikat, kampanjan mainokset ja UTM-tunniste
    - poistaa kampanjan rivin Poista-painikkeella (vahvistuskysymyksen jälkeen)
    Kampanjan mainokset liitetään Mainokset-sivulla (sijoitukset): mainoksen voi sijoittaa
    vain kampanjan sallittuihin mainospaikkoihin.
@@ -34,6 +34,19 @@
   let campaigns = [];
   let advertisers = []; // lomakkeen ja suodattimen valintalistoja varten
   let placements = [];  // lomakkeen mainospaikkavalintaa varten
+  let creatives = [];   // lomakkeen Mainokset-monivalintaa varten (haetaan lomaketta avattaessa)
+
+  /**
+   * Mainokset-monivalinnan vaihtoehdot: valitun mainostajan mainokset. Jos mainos on jo
+   * toisessa kampanjassa, se kerrotaan (valinta siirtää mainoksen tähän kampanjaan).
+   */
+  const creativeOptions = (advertiserId, campaignId) => creatives
+    .filter((c) => c.advertiser_id === Number(advertiserId))
+    .map((c) => ({
+      value: c.id,
+      label: `${c.name} (#${c.id})${c.campaign_id && c.campaign_id !== campaignId
+        ? ` – nyt kampanjassa ${c.campaign_name}` : ''}`,
+    }));
 
   // Kampanjalla ei ole prioriteettia eikä painoarvoa: mainosten näkyvyys määräytyy
   // mainoksen omasta painoarvosta (Mainokset-sivu). Tiimin päätös, ks. migraatio 008.
@@ -64,6 +77,12 @@
         value: p.id,
         label: `${p.name} (${p.width} × ${p.height})${p.status === 'active' ? '' : ' – ei aktiivinen'}`,
       })) },
+    { name: 'creative_ids', label: 'Mainokset', type: 'multiselect', placeholder: 'Valitse mainokset',
+      tooltip: 'Kampanjaan kuuluvat mainokset (valitun mainostajan mainokset). Uusi mainos näytetään '
+        + 'kampanjan kaikissa mainospaikoissa. Valinnasta poistettu mainos irrotetaan kampanjasta ja '
+        + 'merkitään ei-aktiiviseksi. Mainoksen voi liittää kampanjaan myös Mainokset-sivulla.',
+      help: 'Valitse ensin mainostaja ja mainospaikat.',
+      options: [] },
     { name: 'utm_campaign', label: 'UTM-kampanjatunniste', pattern: '[a-z0-9_\\-]+', wide: true,
       placeholder: 'syyskampanja_2026', help: 'Näkyy mainostajan analytiikassa (utm_campaign). Pienet kirjaimet, numerot, _ ja -.' },
   ];
@@ -88,7 +107,21 @@
     start_date: UI.isoToDateInput(c.start_time),
     end_date: UI.isoToDateInput(c.end_time),
     placement_ids: c.placements.map((p) => p.id),
+    creative_ids: c.creative_ids || [],
   });
+
+  /**
+   * UI.openForm kutsuu tätä (onRender): täyttää Mainokset-valinnan valitun mainostajan
+   * mainoksilla ja päivittää sen, kun mainostaja vaihtuu (eri mainostajan valinnat poistuvat).
+   */
+  const attachCreativePicker = (form, campaign, initial) => {
+    form.querySelector('[data-multiselect="creative_ids"]').dataset.empty =
+      'Valitse mainostaja, jolla on mainoksia.';
+    const fill = (selected) => UI.setMultiselectOptions(form, 'creative_ids',
+      creativeOptions(form.elements.advertiser_id.value, campaign?.id), selected);
+    fill(initial);
+    form.elements.advertiser_id.addEventListener('change', () => fill([]));
+  };
 
   /** Piirtää kampanjataulukon (wireframen sarakkeet). Nimen alla linkki kampanjan mainoksiin. */
   const render = () => {
@@ -144,19 +177,29 @@
    * Uusi kampanja on oletuksena aktiivinen (wireframe); ilman päivämääriä tallennus
    * pyytää ne, tai tilaksi voi valita luonnoksen.
    */
-  const openEditor = (campaign) => {
+  const openEditor = async (campaign) => {
     const isNew = !campaign;
+    // Mainokset haetaan joka kerta, jotta valinta näyttää ajantasaiset kampanjat
+    try {
+      creatives = await Api.get('/api/creatives');
+    } catch (err) {
+      UI.toast(err.message, 'error');
+      return;
+    }
+    const values = campaign ? toFormValues(campaign) : { status: 'active', placement_ids: [], creative_ids: [] };
     UI.openForm({
       title: isNew ? 'Luo uusi kampanja' : 'Muokkaa kampanjaa',
       fields: fields(),
-      values: campaign ? toFormValues(campaign) : { status: 'active', placement_ids: [] },
+      values,
       submitLabel: isNew ? 'Luo kampanja' : 'Tallenna',
+      onRender: (form) => attachCreativePicker(form, campaign, values.creative_ids),
       onSubmit: async (data) => {
         const payload = toPayload(data);
         if (isNew) await Api.post('/api/campaigns', payload);
         else await Api.put(`/api/campaigns/${campaign.id}`, payload);
-        UI.toast(isNew ? 'Kampanja luotu.' : 'Kampanjan tiedot päivitetty.');
         load();
+        // Wireframe: onnistumisilmoitus omana ikkunanaan, joka suljetaan ×:llä
+        setTimeout(() => UI.notice({ message: isNew ? 'Kampanja luotu.' : 'Kampanjan tiedot päivitetty.' }), 0);
       },
     });
   };
@@ -173,8 +216,8 @@
     if (!ok) return;
     try {
       await Api.del(`/api/campaigns/${c.id}`);
-      UI.toast('Kampanja poistettu.');
       load();
+      UI.notice({ message: 'Kampanja poistettu.' });
     } catch (err) {
       UI.toast(err.message, 'error');
     }

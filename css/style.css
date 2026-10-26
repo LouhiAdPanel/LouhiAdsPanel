@@ -1184,3 +1184,57 @@ body:not(.role-admin) .admin-only { display: none !important; }
 .vis-bar { display: inline-block; width: 90px; height: 8px; margin-right: 8px; vertical-align: middle;
   background: #E8E9EB; border-radius: 4px; overflow: hidden; }
 .vis-bar > span { display: block; height: 100%; background: #F29100; }
+
+/* ============================================================
+   15. Demosivuston linkki päänavigaation alimpana
+   Erottuu muista valikkonapeista: oranssi reunus ja teksti, ulkoisen linkin
+   nuoli ja oma erotinviiva yläpuolella. Hover täyttää napin oranssilla.
+   Avautuu uuteen välilehteen (demosivu on julkinen esimerkkiasiakkaan sivu).
+   ============================================================ */
+.nav-demo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 268px;
+  max-width: 100%;
+  height: 49px;
+  margin-top: 14px;
+  padding: 0 16px;
+  border: 1.5px solid #F29100;
+  border-radius: var(--radius-sm);
+  background: #FFFFFF;
+  color: #C97800;
+  font-size: 15px;
+  font-weight: 600;
+  position: relative;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+/* Erotinviiva varsinaisten sivujen ja demolinkin väliin */
+.nav-demo::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -9px;
+  border-top: 1px solid #D5D7DA;
+}
+.nav-demo svg { flex-shrink: 0; }
+.nav-demo .nav-demo-ext { margin-left: auto; opacity: 0.8; }
+.nav-demo:hover,
+.nav-demo:focus-visible { background: #F29100; color: #FFFFFF; outline: none; }
+
+@media (max-width: 760px) {
+  .nav-demo { width: auto; height: 44px; margin: 0 0 0 8px; white-space: nowrap; }
+  .nav-demo::before { display: none; }
+}
+
+/* ============================================================
+   16. Ilmoitusikkunat (UI.notice) ja vahvistukset
+   Wireframejen ilmoitukset, esim. "Kampanja luotu" ja "Salasanasi on vaihdettu":
+   pelkkä viesti ja sulkuruksi. Virheilmoitus (is-error) punaisella.
+   ============================================================ */
+.modal-notice { width: min(420px, calc(100vw - 32px)); }
+.modal-notice .modal-header { border-bottom: none; padding-bottom: 0; }
+.modal-notice .modal-body { padding: 8px 28px 30px; text-align: center; }
+.modal-notice .notice-message { font-size: 16px; font-weight: 500; color: var(--ink-900); }
+.modal-notice.is-error .notice-message { color: #B42318; }

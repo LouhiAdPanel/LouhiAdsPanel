@@ -49,7 +49,10 @@ SELECT c.*,
                  FROM campaign_placements cp JOIN placements p ON p.id = cp.placement_id
                  WHERE cp.campaign_id = c.id), '[]') AS placements,
        (SELECT count(DISTINCT pl.creative_id) FROM placings pl
-         WHERE pl.campaign_id = c.id AND pl.status <> 'inactive') AS creative_count
+         WHERE pl.campaign_id = c.id AND pl.status <> 'inactive') AS creative_count,
+       -- kampanjan mainokset (lomakkeen Mainokset-monivalintaa varten)
+       COALESCE((SELECT json_agg(DISTINCT pl.creative_id) FROM placings pl
+                 WHERE pl.campaign_id = c.id AND pl.status <> 'inactive'), '[]') AS creative_ids
 FROM v_campaign_status c
 JOIN advertisers a ON a.id = c.advertiser_id
 WHERE (%(id)s::int            IS NULL OR c.id = %(id)s)
@@ -85,6 +88,60 @@ def _set_placements(conn, campaign_id: int, placement_ids: list[int]):
         )
 
 
+def _set_creatives(conn, campaign_id: int, advertiser_id: int, creative_ids: list[int] | None):
+    """Liittää kampanjaan lomakkeella valitut mainokset ja irrottaa poistetut.
+
+    Mainos on kampanjassa sijoitustensa (placings.campaign_id) kautta.
+    - Uusi valittu mainos: sille tehdään sijoitus jokaiseen kampanjan mainospaikkaan
+      (tai olemassa oleva sijoitus liitetään kampanjaan ja aktivoidaan). Mainoksen
+      sijoitukset muissa paikoissa merkitään ei-aktiivisiksi, koska kampanjan mainos saa
+      näkyä vain kampanjan paikoissa. Painoarvo säilyy (uusille sijoituksille mainoksen
+      nykyinen painoarvo tai oletus 50).
+    - Valinnoista poistettu mainos: sen kampanjasijoitukset irrotetaan kampanjasta ja
+      merkitään ei-aktiivisiksi (kuten kampanjan poistossa), jottei mainos ala yllättäen
+      näkyä kampanjan aikataulun ulkopuolella. Mainoksen voi aktivoida mainoslomakkeella.
+    - Jo kampanjassa olevaan mainokseen ei kosketa.
+    creative_ids = None -> ei muutoksia. Virheet: 422 vieraan mainostajan mainos tai
+    kampanjalla ei mainospaikkoja.
+    """
+    if creative_ids is None:
+        return
+    wanted = set(creative_ids)
+    current = {r["creative_id"] for r in conn.execute(
+        "SELECT DISTINCT creative_id FROM placings WHERE campaign_id = %s AND status <> 'inactive'",
+        [campaign_id])}
+    if wanted:
+        own = {r["id"] for r in conn.execute(
+            "SELECT id FROM creatives WHERE id = ANY(%s) AND advertiser_id = %s",
+            [list(wanted), advertiser_id])}
+        if own != wanted:
+            raise HTTPException(422, "Kampanjaan voi liittää vain saman mainostajan mainoksia.")
+    removed, added = current - wanted, wanted - current
+    if removed:
+        conn.execute(
+            """UPDATE placings SET campaign_id = NULL, status = 'inactive'
+               WHERE campaign_id = %s AND creative_id = ANY(%s)""", [campaign_id, list(removed)])
+    if not added:
+        return
+    places = [r["placement_id"] for r in conn.execute(
+        "SELECT placement_id FROM campaign_placements WHERE campaign_id = %s", [campaign_id])]
+    if not places:
+        raise HTTPException(422, "Valitse kampanjalle mainospaikat, jotta siihen voi liittää mainoksia.")
+    for creative_id in added:
+        conn.execute(
+            """UPDATE placings SET status = 'inactive'
+               WHERE creative_id = %s AND NOT (placement_id = ANY(%s))""", [creative_id, places])
+        conn.execute(
+            """INSERT INTO placings (advertiser_id, creative_id, campaign_id, placement_id,
+                                     weight, priority, status)
+               SELECT %(adv)s, %(cr)s, %(camp)s, unnest(%(places)s::int[]), 1,
+                      COALESCE((SELECT max(priority) FROM placings WHERE creative_id = %(cr)s), 50),
+                      'active'
+               ON CONFLICT (creative_id, placement_id) DO UPDATE
+                  SET campaign_id = EXCLUDED.campaign_id, status = 'active'""",
+            {"adv": advertiser_id, "cr": creative_id, "camp": campaign_id, "places": places})
+
+
 def _get_or_404(conn, campaign_id: int):
     """Hakee yhden kampanjan samassa muodossa kuin listassa, tai nostaa 404:n."""
     rows = _fetch(conn, id=campaign_id)
@@ -118,14 +175,16 @@ def get_campaign(campaign_id: int, conn=Depends(get_conn)):
 def create_campaign(body: CampaignIn, conn=Depends(get_conn)):
     """POST /api/campaigns – luo kampanjan ja sen sallitut mainospaikat.
 
-    placement_ids ei ole campaigns-taulun sarake, joten se erotetaan ja tallennetaan
-    liitostauluun. Mainokset liitetään kampanjaan mainoslomakkeella (sijoitukset).
+    placement_ids ja creative_ids eivät ole campaigns-taulun sarakkeita: paikat tallennetaan
+    liitostauluun ja mainokset liitetään sijoitusten kautta (_set_creatives). Mainoksen voi
+    liittää kampanjaan myös mainoslomakkeella.
     Palauttaa kampanjan listamuodossa (201).
     Virheet: 422 virheellinen runko (esim. aktiivinen ilman päivämääriä, CampaignIn),
     409 olematon mainostaja tai mainospaikka.
     """
-    row = insert_row(conn, "campaigns", body.model_dump(exclude={"placement_ids"}))
+    row = insert_row(conn, "campaigns", body.model_dump(exclude={"placement_ids", "creative_ids"}))
     _set_placements(conn, row["id"], body.placement_ids)
+    _set_creatives(conn, row["id"], body.advertiser_id, body.creative_ids)
     return _get_or_404(conn, row["id"])
 
 
@@ -145,8 +204,9 @@ def update_campaign(campaign_id: int, body: CampaignIn, conn=Depends(get_conn)):
             "SELECT 1 FROM placings WHERE campaign_id = %s LIMIT 1", [campaign_id]).fetchone():
         raise HTTPException(409, "Kampanjalla on mainoksia, joten mainostajaa ei voi vaihtaa. "
                                  "Irrota mainokset kampanjasta ensin Mainokset-sivulla.")
-    update_row(conn, "campaigns", campaign_id, body.model_dump(exclude={"placement_ids"}))
+    update_row(conn, "campaigns", campaign_id, body.model_dump(exclude={"placement_ids", "creative_ids"}))
     _set_placements(conn, campaign_id, body.placement_ids)
+    _set_creatives(conn, campaign_id, body.advertiser_id, body.creative_ids)
     return _get_or_404(conn, campaign_id)
 
 

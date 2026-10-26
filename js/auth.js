@@ -50,8 +50,18 @@ const Auth = (() => {
     box.querySelector('[data-auth="password"]').addEventListener('click', changePassword);
   };
 
-  /** Kirjaa ulos (backend poistaa session) ja siirtyy kirjautumissivulle. */
+  /**
+   * Kirjaa ulos vahvistuksen jälkeen (wireframe: "Haluatko varmasti kirjautua ulos?",
+   * Peruuta / Kirjaudu ulos). Backend poistaa session, ja käyttäjä siirtyy kirjautumissivulle.
+   */
   const logout = async () => {
+    const ok = await UI.confirm({
+      title: 'Kirjaudu ulos',
+      message: 'Haluatko varmasti kirjautua ulos?',
+      confirmLabel: 'Kirjaudu ulos',
+      confirmCls: 'btn-primary',
+    });
+    if (!ok) return;   // Peruuta tai ×: ikkuna sulkeutuu ja käyttäjä jää sivulle
     try { await Api.post('/api/auth/logout'); } catch { /* ohjataan joka tapauksessa */ }
     window.location.href = '/login.html';
   };
@@ -68,17 +78,30 @@ const Auth = (() => {
       fields: [
         { name: 'current_password', label: 'Nykyinen salasana', type: 'password', required: true, wide: true, autocomplete: 'current-password' },
         { name: 'new_password', label: 'Uusi salasana', type: 'password', required: true, wide: true, help: `Vähintään ${minPw()} merkkiä.` },
-        { name: 'confirm', label: 'Uusi salasana uudelleen', type: 'password', required: true, wide: true },
+        { name: 'confirm', label: 'Vahvista uusi salasana', type: 'password', required: true, wide: true },
       ],
       onSubmit: async (data) => {
-        if (data.new_password !== data.confirm) throw new Error('Uudet salasanat eivät täsmää.');
+        // Wireframe: täsmäämättömästä vahvistuksesta virheilmoitus lomakkeella
+        if (data.new_password !== data.confirm) throw new Error('Salasanat eivät täsmää.');
         if (data.new_password.length < minPw()) throw new Error(`Salasanan on oltava vähintään ${minPw()} merkkiä pitkä.`);
-        // confirm-kenttää ei lähetetä: se on vain käyttöliittymän tarkistusta varten
-        await Api.put('/api/auth/password', {
-          current_password: data.current_password,
-          new_password: data.new_password,
-        });
-        UI.toast('Salasana vaihdettu.');
+        try {
+          // confirm-kenttää ei lähetetä: se on vain käyttöliittymän tarkistusta varten
+          await Api.put('/api/auth/password', {
+            current_password: data.current_password,
+            new_password: data.new_password,
+          });
+        } catch (err) {
+          // Väärä nykyinen salasana (400): wireframen virheikkuna, jonka sulkeminen (×)
+          // palaa Vaihda salasana -lomakkeelle (lomake jää auki, return false).
+          if (err.status === 400) {
+            await UI.notice({ title: 'Virhe', message: 'Nykyinen salasana on virheellinen.', type: 'error' });
+            return false;
+          }
+          throw err;
+        }
+        // Lomake sulkeutuu, ja wireframen onnistumisikkuna näytetään (× sulkee sen)
+        setTimeout(() => UI.notice({ title: 'Vaihda salasana', message: 'Salasanasi on vaihdettu.' }), 0);
+        return undefined;
       },
     });
   };
