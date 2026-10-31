@@ -17,6 +17,7 @@
 | `007_campaign_placements.sql` | Kampanjan sallitut mainospaikat (`campaign_placements`) |
 | `008_painoarvo.sql` | Paino ja prioriteetti yhdistetään painoarvoksi (`placings.priority`, 0–100). Vain datan muunnos, ei rakennemuutoksia. |
 | `009_environments.sql` | Ympäristöt omaan tauluun (`environments`, kanava web/email); `placements.environment` viittaa nimeen. Uutiskirjeen ympäristö ja kaksi mainospaikkaa. |
+| `010_fix_encoding.sql` | Korjaa ääkköset, jos 009 ajettiin Windowsin psql:llä ennen merkistökorjausta ("sÃ¤hkÃ¶posti" → "sähköposti"). Ei muuta oikein tallentuneita tekstejä. |
 
 ## Käyttöönotto (Windows, PowerShell)
 

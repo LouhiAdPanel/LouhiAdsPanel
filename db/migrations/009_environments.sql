@@ -20,6 +20,10 @@
 --
 -- Idempotentti: voi ajaa monta kertaa. Aja migraation 008 jälkeen.
 -- =====================================================================
+-- Tiedosto on UTF-8:aa. Ilman tätä Windowsin psql lukee sen WIN1252-merkistönä,
+-- jolloin ä ja ö tallentuvat väärin (esim. "sÃ¤hkÃ¶posti"). Korjaus: 010_fix_encoding.sql.
+SET client_encoding = 'UTF8';
+
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS environments (

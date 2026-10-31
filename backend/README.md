@@ -88,6 +88,7 @@ psql -U postgres -d louhiads -f ..\db\migrations\006_placings.sql               
 psql -U postgres -d louhiads -f ..\db\migrations\007_campaign_placements.sql       # kampanjan sallitut paikat
 psql -U postgres -d louhiads -f ..\db\migrations\008_painoarvo.sql                 # painoarvo (paino + prioriteetti yhdeksi)
 psql -U postgres -d louhiads -f ..\db\migrations\009_environments.sql             # ympäristöt + uutiskirjeen mainospaikat
+psql -U postgres -d louhiads -f ..\db\migrations\010_fix_encoding.sql             # ääkkösten korjaus (jos 009 näytti ä/ö väärin)
 ```
 
 Vaihtoehto kehityskoneella: rakenna kanta alusta (poistaa datan) komennolla
