@@ -3,7 +3,7 @@
 | Tiedosto     | Sisältö |
 |--------------|---------|
 | `schema.sql` | Taulut, indeksit, triggerit ja raportointinäkymät. **Pudottaa olemassa olevat taulut** – vain kehityskäyttöön. |
-| `seed.sql`   | Testidata: mainostajat, mainospaikat (myös demosivun kolme), kampanjat ja niiden mainospaikat, mainokset, sijoitukset sekä keinotekoiset näytöt/klikkaukset 14 päivältä. |
+| `seed.sql`   | Testidata (vain kehityskoneelle): ympäristöt, mainostajat, mainospaikat (myös demosivun ja uutiskirjeen), kampanjat ja niiden mainospaikat, mainokset, sijoitukset sekä keinotekoiset näytöt/klikkaukset 14 päivältä. Tuotantokantaan (Neon) ei ajeta: siellä raportit näyttävät vain oikeat näytöt ja klikit. |
 | `migrations/` | Muutokset olemassa olevaan kantaan ilman datan poistoa. Aja numerojärjestyksessä ne, joita kantaan ei ole vielä ajettu. |
 
 | Migraatio | Muutos |
@@ -16,6 +16,7 @@
 | `006_placings.sql` | Uusi tietomalli: sijoitukset (`placings`, kaavion PLACING) |
 | `007_campaign_placements.sql` | Kampanjan sallitut mainospaikat (`campaign_placements`) |
 | `008_painoarvo.sql` | Paino ja prioriteetti yhdistetään painoarvoksi (`placings.priority`, 0–100). Vain datan muunnos, ei rakennemuutoksia. |
+| `009_environments.sql` | Ympäristöt omaan tauluun (`environments`, kanava web/email); `placements.environment` viittaa nimeen. Uutiskirjeen ympäristö ja kaksi mainospaikkaa. |
 
 ## Käyttöönotto (Windows, PowerShell)
 
@@ -44,6 +45,7 @@ Goodi = draft, Louhi = paused.
 ## Tietomalli
 
 ```
+environments 1─* placements             (placements.environment -> environments.name)
 advertisers 1─* campaigns
 advertisers 1─* creatives                (kampanja ei ole mainokselle pakollinen)
 placings = sijoitus: creative + placement (+ valinnainen campaign)

@@ -6,7 +6,7 @@
 <title>Raportointi · Louhi Ads</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=23">
+<link rel="stylesheet" href="css/style.css?v=25">
 </head>
 <body>
 <!-- Yläpalkki koko sivun levyisenä: logo vasemmalla, käyttäjä ja tilitoiminnot oikealla (auth.js) -->
@@ -41,6 +41,10 @@
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2.5" width="14" height="13" rx="1"/><line x1="2" y1="6.5" x2="16" y2="6.5"/></svg>
         Mainospaikat
       </a>
+      <a href="environments.html" class="nav-link admin-only">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M9 2 16 5.5 9 9 2 5.5 9 2Z"/><path d="m2 9 7 3.5L16 9"/><path d="m2 12.5 7 3.5 7-3.5"/></svg>
+        Ympäristöt
+      </a>
       <a href="reporting.html" class="nav-link active">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="2" y1="16" x2="16" y2="16"/><rect x="3.5" y="10" width="3" height="6"/><rect x="7.7" y="6" width="3" height="10"/><rect x="11.9" y="3" width="3" height="13"/></svg>
         Raportointi
@@ -49,12 +53,17 @@
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="6" r="2.8"/><path d="M1.8 15.5c.6-2.8 2.7-4.3 5.2-4.3s4.6 1.5 5.2 4.3"/><path d="M12 3.6a2.6 2.6 0 0 1 0 5"/><path d="M13.6 11.4c1.4.6 2.3 2 2.6 4.1"/></svg>
         Käyttäjät
       </a>
-      <!-- Linkki demosivustolle: avautuu uuteen välilehteen, erottuu muista valikkonapeista -->
-      <a href="/demopage/" class="nav-demo" target="_blank" rel="noopener">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="9" r="7"/><path d="M2 9h14"/><path d="M9 2c2 2.2 2.8 4.6 2.8 7s-.8 4.8-2.8 7c-2-2.2-2.8-4.6-2.8-7S7 4.2 9 2Z"/></svg>
-        Demosivu
-        <svg class="nav-demo-ext" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2h4v4"/><path d="M12 2 6.5 7.5"/><path d="M10.5 8.5V12h-8.5V3.5H5.5"/></svg>
-      </a>
+      <!-- Demolinkit rinnakkain: avautuvat uuteen välilehteen, erottuvat muista valikkonapeista -->
+      <div class="nav-demo-row">
+        <a href="/demopage/" class="nav-demo" target="_blank" rel="noopener" title="Avaa demosivu uuteen välilehteen">
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="9" r="7"/><path d="M2 9h14"/><path d="M9 2c2 2.2 2.8 4.6 2.8 7s-.8 4.8-2.8 7c-2-2.2-2.8-4.6-2.8-7S7 4.2 9 2Z"/></svg>
+          Demosivu
+        </a>
+        <a href="/newsletter/" class="nav-demo" target="_blank" rel="noopener" title="Avaa uutiskirjedemo uuteen välilehteen">
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="2" y="3.5" width="14" height="11" rx="1.2"/><path d="m2.5 4.5 6.5 5 6.5-5"/></svg>
+          Uutiskirjedemo
+        </a>
+      </div>
     </nav>
   </aside>
 
@@ -62,7 +71,7 @@
     <div class="topbar">
       <div>
         <h1>Raportointi</h1>
-        <p>Näytöt, klikkaukset ja CTR kampanjoittain.</p>
+        <p>Näytöt, klikkaukset ja CTR. Näyttö lasketaan, kun vähintään puolet mainoksesta on ollut näkyvissä sekunnin.</p>
       </div>
     </div>
 
@@ -70,7 +79,10 @@
       <div class="section-toolbar">
         <h2 id="report-period-title">Ajanjakso</h2>
         <div class="filters">
-          <select class="select" id="report-campaign">
+          <select class="select" id="report-advertiser" aria-label="Mainostaja">
+            <option value="">Kaikki mainostajat</option>
+          </select>
+          <select class="select" id="report-campaign" aria-label="Kampanja">
             <option value="">Kaikki kampanjat</option>
           </select>
           <select class="select" id="report-period">
@@ -82,6 +94,7 @@
           </select>
           <select class="select" id="report-group">
             <option value="campaign">Kampanjoittain</option>
+            <option value="advertiser">Mainostajittain</option>
             <option value="creative">Mainoksittain</option>
             <option value="placement">Mainospaikoittain</option>
             <option value="day">Päivittäin</option>
@@ -133,14 +146,15 @@
     <div class="app-footer-col">
       <h4>Testaus</h4>
       <a class="accent" href="/demopage/" target="_blank" rel="noopener">Demosivu →</a>
+      <a class="accent" href="/newsletter/" target="_blank" rel="noopener">Uutiskirjedemo →</a>
       <a href="ad-demo.html" target="_blank" rel="noopener">Mainostagin testisivu</a>
     </div>
   </div>
   <div class="app-footer-bottom">© 2026 Louhi Ads · <span class="accent">Kouluprojekti</span></div>
 </footer>
-  <script src="js/api.js?v=23"></script>
-  <script src="js/ui.js?v=23"></script>
-  <script src="js/auth.js?v=23"></script>
-  <script src="js/reporting.js?v=23"></script>
+  <script src="js/api.js?v=25"></script>
+  <script src="js/ui.js?v=25"></script>
+  <script src="js/auth.js?v=25"></script>
+  <script src="js/reporting.js?v=25"></script>
 </body>
 </html>

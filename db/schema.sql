@@ -21,7 +21,7 @@ SET client_min_messages = warning;
 
 DROP VIEW  IF EXISTS v_campaign_status, v_daily_stats CASCADE;
 DROP TABLE IF EXISTS clicks, impressions, targeting_rules, placings, campaign_placements,
-                     creative_placements, creatives, campaigns, placements, advertisers,
+                     creative_placements, creatives, campaigns, placements, environments, advertisers,
                      sessions, users, media_files CASCADE;
 
 -- ---------------------------------------------------------------------
@@ -86,6 +86,24 @@ CREATE TABLE advertisers (
 );
 
 -- ---------------------------------------------------------------------
+-- Ympäristöt (Ympäristöt-sivu, vain admin; migraatio 009)
+-- Ympäristö = palvelu tai kanava, jossa mainospaikat ovat (Louhi Konsoli, www,
+-- Uutiskirje...). channel kertoo, miten paikan mainos upotetaan:
+--   'web'   = verkkosivu, mainostagi louhi-ads.js
+--   'email' = sähköposti (uutiskirje), kuva + linkki -upotus ilman JavaScriptiä
+-- placements.environment viittaa nimeen: nimen muutos päivittyy paikoille
+-- (ON UPDATE CASCADE), ja käytössä olevaa ympäristöä ei voi poistaa (RESTRICT).
+-- ---------------------------------------------------------------------
+CREATE TABLE environments (
+    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name        TEXT        NOT NULL UNIQUE,
+    channel     TEXT        NOT NULL DEFAULT 'web' CHECK (channel IN ('web', 'email')),
+    description TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------
 -- Mainospaikat (luku 3)
 -- code = placement ID, jota mainostagi käyttää (data-placement="...")
 -- Mainospaikka = kohta sivustolla, johon mainos upotetaan.
@@ -100,7 +118,8 @@ CREATE TABLE placements (
     name        TEXT        NOT NULL,
     code        TEXT        NOT NULL UNIQUE
                 CHECK (code ~ '^[a-z0-9_]+$'),
-    environment TEXT        NOT NULL,          -- esim. 'Louhi Konsoli', 'www'
+    environment TEXT        NOT NULL           -- esim. 'Louhi Konsoli', 'www', 'Uutiskirje'
+                REFERENCES environments(name) ON UPDATE CASCADE ON DELETE RESTRICT,
     width       INTEGER     NOT NULL CHECK (width  > 0),
     height      INTEGER     NOT NULL CHECK (height > 0),
     status      TEXT        NOT NULL DEFAULT 'active'
@@ -299,6 +318,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_advertisers_updated BEFORE UPDATE ON advertisers FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_environments_updated BEFORE UPDATE ON environments FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_placements_updated  BEFORE UPDATE ON placements  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_campaigns_updated   BEFORE UPDATE ON campaigns   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_creatives_updated   BEFORE UPDATE ON creatives   FOR EACH ROW EXECUTE FUNCTION set_updated_at();

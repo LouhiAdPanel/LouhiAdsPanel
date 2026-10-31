@@ -1,17 +1,21 @@
 /* Raportointi-sivu (reporting.html): näytöt, klikit ja CTR valitulta ajanjaksolta + CSV-vienti.
 
    Käyttäjä (admin ja editor) voi:
-   - valita kampanjan (tai kaikki), ajanjakson ja ryhmittelyn (kampanja/mainos/paikka/päivä)
+   - rajata raportin mainostajaan ja/tai kampanjaan, valita ajanjakson ja ryhmittelyn
+     (mainostaja/kampanja/mainos/paikka/päivä). Mainostajan valinta rajaa kampanjalistan
+     kyseisen mainostajan kampanjoihin.
    - nähdä yhteenvedon (näytöt, klikit, CTR) ja taulukon sekä ladata saman raportin CSV:nä
    Tällä sivulla ei ole vain adminille rajattuja toimintoja.
 
    API:
-   - GET /api/stats/report?start=&end=&group_by=&campaign_id=       raportin rivit (JSON)
+   - GET /api/stats/report?start=&end=&group_by=&advertiser_id=&campaign_id=  rivit (JSON)
    - GET /api/stats/report.csv?...                                  sama CSV-tiedostona
-   - GET /api/campaigns                                             kampanjavalinta
+   - GET /api/advertisers, /api/campaigns                           valintalistat
    Data tulee tietokantanäkymästä v_daily_stats (päivät Suomen aikavyöhykkeellä). */
 (() => {
+  const advertiserSel = document.getElementById('report-advertiser');
   const campaignSel = document.getElementById('report-campaign');
+  let campaigns = [];
   const periodSel = document.getElementById('report-period');
   const groupSel = document.getElementById('report-group');
   const periodTitle = document.getElementById('report-period-title');
@@ -23,6 +27,7 @@
   // Avain = group_by-arvo. Taulukon otsikot vaihtuvat ryhmittelyn mukaan; mittarit
   // (METRICS) ovat aina lopussa. Kenttien nimet vastaavat API:n palauttamia sarakkeita.
   const COLUMNS = {
+    advertiser: [['advertiser', 'Mainostaja']],
     campaign:  [['campaign', 'Kampanja'], ['advertiser', 'Mainostaja']],
     creative:  [['creative', 'Mainos'], ['advertiser', 'Mainostaja'], ['campaign', 'Kampanja']],
     placement: [['placement', 'Mainospaikka']],
@@ -57,7 +62,10 @@
   };
 
   /** Kyselyparametrit; samat sekä taulukolle että CSV-viennille, jotta ne vastaavat toisiaan. */
-  const params = () => ({ ...period(), group_by: groupSel.value, campaign_id: campaignSel.value });
+  const params = () => ({
+    ...period(), group_by: groupSel.value,
+    advertiser_id: advertiserSel.value, campaign_id: campaignSel.value,
+  });
 
   /**
    * Laskee yhteenvetoluvut riveistä. Kokonais-CTR lasketaan summista (klikit / näytöt),
@@ -105,11 +113,23 @@
     }
   };
 
-  /** Täyttää kampanjavalinnan. */
-  const loadCampaigns = async () => {
-    const campaigns = await Api.get('/api/campaigns');
+  /** Kampanjavalinta: valitun mainostajan kampanjat (tai kaikki). Valinta säilyy, jos mahdollista. */
+  const fillCampaigns = () => {
+    const adv = advertiserSel.value;
+    const prev = campaignSel.value;
+    const list = adv ? campaigns.filter((c) => String(c.advertiser_id) === adv) : campaigns;
     campaignSel.innerHTML = '<option value="">Kaikki kampanjat</option>' +
-      campaigns.map((c) => `<option value="${c.id}">${UI.esc(c.name)}</option>`).join('');
+      list.map((c) => `<option value="${c.id}">${UI.esc(c.name)}</option>`).join('');
+    campaignSel.value = list.some((c) => String(c.id) === prev) ? prev : '';
+  };
+
+  /** Täyttää mainostaja- ja kampanjavalinnat. */
+  const loadLookups = async () => {
+    const [advertisers, camps] = await Promise.all([Api.get('/api/advertisers'), Api.get('/api/campaigns')]);
+    campaigns = camps;
+    advertiserSel.innerHTML = '<option value="">Kaikki mainostajat</option>' +
+      advertisers.map((a) => `<option value="${a.id}">${UI.esc(a.name)}</option>`).join('');
+    fillCampaigns();
   };
 
   // CSV-vienti tavallisena siirtymänä: palvelin lähettää tiedoston latauksena
@@ -117,9 +137,10 @@
   csvBtn.addEventListener('click', () => {
     window.location.href = '/api/stats/report.csv' + Api.query(params());
   });
+  advertiserSel.addEventListener('change', () => { fillCampaigns(); load(); });
   [campaignSel, periodSel, groupSel].forEach((el) => el.addEventListener('change', load));
 
-  loadCampaigns()
+  loadLookups()
     .catch((err) => UI.toast(err.message, 'error'))
     .finally(load);
 })();

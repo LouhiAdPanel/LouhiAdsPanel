@@ -31,6 +31,21 @@ class AdvertiserIn(BaseModel):
     status: AdvertiserStatus = "active"
 
 
+EnvironmentChannel = Literal["web", "email"]   # web = verkkosivu, email = sähköposti
+
+
+class EnvironmentIn(BaseModel):
+    """Ympäristön luonti/muokkaus (Ympäristöt-sivu, vain admin).
+
+    channel kertoo, miten ympäristön mainospaikat upotetaan: 'web' = mainostagi
+    louhi-ads.js, 'email' = kuva + linkki -upotus uutiskirjeeseen (ks. serving.py).
+    """
+
+    name: str = Field(min_length=1, max_length=100)
+    channel: EnvironmentChannel = "web"
+    description: str | None = Field(default=None, max_length=500)
+
+
 class PlacementIn(BaseModel):
     """Mainospaikan luonti/muokkaus. width/height = suurin sallittu mainoksen koko pikseleinä."""
 

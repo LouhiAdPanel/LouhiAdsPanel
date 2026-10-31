@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uutiskirjedemo · LouhiDemo</title>
+<!--
+  UUTISKIRJEPOHJA (template) – Louhi Ads -uutiskirjedemo
+
+  Näyttää, miten Louhi Adsin mainokset näkyvät sähköpostiuutiskirjeessä.
+  Itse uutiskirje (taulukko .nl-email) on tehty sähköpostin säännöillä:
+    - asettelu taulukoilla, 600 px leveä, tyylit inline (style="…"),
+      koska sähköpostiohjelmat (Outlook, Gmail) eivät tue nykyaikaista CSS:ää
+    - EI JavaScriptiä: sähköpostiohjelmat eivät aja sitä, joten mainostagi
+      louhi-ads.js ei toimi uutiskirjeessä
+
+  Mainospaikat (ympäristö "Uutiskirje", luotu migraatiossa 009):
+    louhi_uutiskirje_yla       600 × 200  otsikon alla
+    louhi_uutiskirje_sisalto   600 × 300  artikkelien välissä
+  Mainos on tavallinen kuva linkin sisällä (Mainospaikat-sivun Upotuskoodi):
+    kuva  /api/v1/email/img?placement=…&r=…    -> palvelin arpoo mainoksen, kirjaa näytön
+    linkki /api/v1/email/click?placement=…&r=… -> palvelin kirjaa klikin, ohjaa kohteeseen
+  r = vastaanottajan tunniste. Oikeassa lähetyksessä {{ID}} korvataan lähetysohjelman
+  vastaanottajakohtaisella tunnisteella (esim. Mailchimp *|UNIQID|*), jolloin kuva ja
+  linkki osoittavat samaan mainokseen. Oikeassa uutiskirjeessä osoitteet ovat
+  absoluuttisia (https://louhiads.onrender.com/api/v1/...).
+
+  Sivun yläreunan demopalkki ja alareunan pieni skripti EIVÄT kuulu uutiskirjeeseen:
+  skripti vain arpoo demossa vastaanottajan tunnisteen, jotta eri latauksilla näkyy
+  eri mainoksia kuten eri vastaanottajilla. Siksi demossa kuvan osoite on data-src-
+  attribuutissa (skripti siirtää sen src:ksi tunnisteen kanssa). Oikeassa uutiskirjeessä
+  käytetään tavallista src-attribuuttia, kuten Mainospaikat-sivun Upotuskoodissa.
+-->
+<style>
+  /* Vain demosivun kehys (ei osa sähköpostia) */
+  body { margin: 0; background: #EDEEF0; font-family: 'Open Sans', Arial, sans-serif; }
+  .demo-bar {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+    padding: 12px 16px; background: #1B2027; color: #fff; font-size: 14px;
+  }
+  .demo-bar strong { color: #F9971C; }
+  .demo-bar span { flex: 1 1 280px; color: #D5D7DA; }
+  .demo-bar button {
+    border: 1.5px solid #F29100; background: transparent; color: #fff; border-radius: 6px;
+    padding: 7px 14px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  .demo-bar button:hover { background: #F29100; }
+  .demo-empty {
+    display: block; padding: 24px 16px; border: 2px dashed #D5D7DA; border-radius: 6px;
+    color: #8F8F8F; font: 13px/1.5 Arial, sans-serif; text-align: center;
+  }
+  @media (max-width: 640px) { .nl-wrap { padding: 0 !important; } }
+</style>
+</head>
+<body>
+
+<div class="demo-bar">
+  <strong>Uutiskirjedemo</strong>
+  <span>Näin Louhi Adsin mainokset näkyvät sähköpostiuutiskirjeessä. Näyttö kirjataan, kun mainoskuva avautuu, ja klikki, kun mainosta klikataan.</span>
+  <button type="button" id="new-recipient" title="Lataa uutiskirje uudelleen eri vastaanottajan tunnisteella">Uusi vastaanottaja</button>
+</div>
+
+<!-- ===================== SÄHKÖPOSTI ALKAA ===================== -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EDEEF0">
+  <tr>
+    <td class="nl-wrap" align="center" style="padding:32px 16px">
+
+      <table role="presentation" class="nl-email" width="600" cellpadding="0" cellspacing="0" border="0"
+             style="width:100%;max-width:600px;background:#FFFFFF;border-radius:8px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;color:#1A1A1A">
+
+        <!-- Esiotsake: näkyy postilaatikon esikatselussa, ei itse viestissä -->
+        <tr><td style="display:none;font-size:1px;line-height:1px;max-height:0;overflow:hidden">Marraskuun uutiset: uudet sähköpostipaketit, tietoturvavinkit ja tapahtumat.</td></tr>
+
+        <!-- Ylätunniste -->
+        <tr>
+          <td style="padding:20px 32px;background:#1B2027">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="font-size:20px;font-weight:bold;color:#FFFFFF">Louhi<span style="color:#F9971C">Demo</span></td>
+                <td align="right" style="font-size:12px;color:#D5D7DA">Uutiskirje · Marraskuu 2026</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Pääotsikko -->
+        <tr>
+          <td style="padding:32px 32px 20px">
+            <h1 style="margin:0 0 12px;font-size:26px;line-height:1.25;color:#1A1A1A">Hei! Tässä kuukauden tärkeimmät uutiset</h1>
+            <p style="margin:0;font-size:15px;line-height:1.6;color:#606060">Kokosimme tähän uutiskirjeeseen uudet palvelumme, ajankohtaiset tietoturvavinkit ja tulevat tapahtumat.</p>
+          </td>
+        </tr>
+
+        <!-- MAINOSPAIKKA: louhi_uutiskirje_yla (600 × 200) -->
+        <tr>
+          <td style="padding:0">
+            <a class="nl-ad" href="/api/v1/email/click?placement=louhi_uutiskirje_yla&amp;r={{ID}}" target="_blank" style="display:block">
+              <img data-src="/api/v1/email/img?placement=louhi_uutiskirje_yla&amp;r={{ID}}" width="600" alt="Mainos"
+                   style="display:block;width:100%;max-width:600px;height:auto;border:0">
+            </a>
+          </td>
+        </tr>
+
+        <!-- Artikkeli 1 -->
+        <tr>
+          <td style="padding:28px 32px 8px">
+            <p style="margin:0 0 6px;font-size:12px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;color:#C97800">Uutta</p>
+            <h2 style="margin:0 0 10px;font-size:20px;color:#1A1A1A">Sähköpostipaketit uudistuivat</h2>
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#606060">Kaikissa sähköpostipaketeissa on nyt enemmän tallennustilaa ja parempi roskapostisuoja. Uudistus tulee voimaan automaattisesti, eikä se vaadi sinulta toimenpiteitä.</p>
+            <a href="#" style="display:inline-block;padding:10px 20px;background:#F29100;color:#FFFFFF;font-size:14px;font-weight:bold;text-decoration:none;border-radius:6px">Lue lisää</a>
+          </td>
+        </tr>
+
+        <!-- Artikkeli 2 -->
+        <tr>
+          <td style="padding:28px 32px">
+            <p style="margin:0 0 6px;font-size:12px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;color:#C97800">Tietoturva</p>
+            <h2 style="margin:0 0 10px;font-size:20px;color:#1A1A1A">Viisi vinkkiä turvallisempaan verkkotunnukseen</h2>
+            <p style="margin:0;font-size:15px;line-height:1.6;color:#606060">Ota käyttöön kaksivaiheinen tunnistautuminen, pidä yhteystietosi ajan tasalla ja tarkista verkkotunnuksesi uusimispäivä. Kokosimme kaikki vinkit tukisivuillemme.</p>
+          </td>
+        </tr>
+
+        <!-- MAINOSPAIKKA: louhi_uutiskirje_sisalto (600 × 300) -->
+        <tr>
+          <td style="padding:0 0 8px">
+            <a class="nl-ad" href="/api/v1/email/click?placement=louhi_uutiskirje_sisalto&amp;r={{ID}}" target="_blank" style="display:block">
+              <img data-src="/api/v1/email/img?placement=louhi_uutiskirje_sisalto&amp;r={{ID}}" width="600" alt="Mainos"
+                   style="display:block;width:100%;max-width:600px;height:auto;border:0">
+            </a>
+          </td>
+        </tr>
+
+        <!-- Artikkeli 3 -->
+        <tr>
+          <td style="padding:28px 32px">
+            <p style="margin:0 0 6px;font-size:12px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;color:#C97800">Tapahtumat</p>
+            <h2 style="margin:0 0 10px;font-size:20px;color:#1A1A1A">Webinaari: kotisivut kuntoon talveksi</h2>
+            <p style="margin:0;font-size:15px;line-height:1.6;color:#606060">Liity mukaan maksuttomaan webinaariin, jossa asiantuntijamme näyttävät, miten päivität kotisivusi nopeasti ja turvallisesti.</p>
+          </td>
+        </tr>
+
+        <!-- Alatunniste -->
+        <tr>
+          <td style="padding:24px 32px;background:#F9F9F9;border-top:1px solid #E8E9EB;font-size:12px;line-height:1.6;color:#8F8F8F">
+            LouhiDemo – kuvitteellinen yritys Louhi Ads -kouluprojektin demoa varten.<br>
+            Sait tämän viestin, koska olet tilannut uutiskirjeemme. <a href="#" style="color:#C97800">Peru tilaus</a>
+          </td>
+        </tr>
+      </table>
+
+    </td>
+  </tr>
+</table>
+<!-- ===================== SÄHKÖPOSTI PÄÄTTYY ===================== -->
+
+<script>
+  /* VAIN DEMOA VARTEN (ei osa uutiskirjettä): täyttää {{ID}}-kohdat satunnaisella
+     vastaanottajan tunnisteella, kuten lähetysohjelma tekisi jokaiselle vastaanottajalle.
+     Lisäksi tyhjä mainospaikka (palvelin palauttaa 1 px korkean läpinäkyvän kuvan)
+     näytetään demossa katkoviivalaatikkona, jotta paikan sijainti näkyy. */
+  (function () {
+    var id = 'demo-' + Math.random().toString(36).slice(2, 10);
+    var ads = document.querySelectorAll('.nl-ad');
+    for (var i = 0; i < ads.length; i++) {
+      var link = ads[i];
+      var img = link.querySelector('img');
+      link.href = link.getAttribute('href').replace('{{ID}}', id);
+      img.addEventListener('load', function (e) {
+        var im = e.target;
+        if (im.naturalHeight <= 1) {
+          var code = new URL(im.src).searchParams.get('placement');
+          var box = document.createElement('span');
+          box.className = 'demo-empty';
+          box.textContent = 'Mainospaikka ' + code + ' – ei näytettävää mainosta. ' +
+            'Sijoita mainos tähän paikkaan Louhi Adsin Mainokset-sivulla.';
+          im.parentNode.replaceWith(box);
+        }
+      });
+      img.src = img.getAttribute('data-src').replace('{{ID}}', id);
+    }
+    document.getElementById('new-recipient').addEventListener('click', function () {
+      window.location.reload();
+    });
+  })();
+</script>
+</body>
+</html>

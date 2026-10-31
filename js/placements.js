@@ -14,6 +14,9 @@
                                    (409); hyvin samankaltaisesta nimestä varoitetaan.
    - PUT    /api/placements/{id}   päivitys (koodi ei muutu)
    - DELETE /api/placements/{id}   poisto
+   - GET    /api/environments      Ympäristö-valinnan vaihtoehdot (Ympäristöt-sivu, admin)
+
+   Lista sivutetaan 20 paikkaa/sivu (UI.pager).
 
    Koodi (placement ID) on tunniste, jolla sivustoille upotettu mainostagi pyytää mainoksia
    (<div data-placement="...">). Siksi sitä ei voi muuttaa luonnin jälkeen. */
@@ -22,10 +25,11 @@
   const countEl = document.getElementById('placements-count');
   const COLS = 5;
   let placements = [];
-
-  // Lomakkeen ympäristövaihtoehdot (Louhen palvelut, joihin mainospaikkoja sijoitetaan).
-  // Tietokannassa environment on vapaa teksti, joten listaa voi laajentaa tästä.
-  const ENVIRONMENTS = ['Louhi Konsoli', 'www', 'Domain Control Panel', 'Tukiportaali', 'cPanel'];
+  // Ympäristöt tulevat tietokannasta (GET /api/environments); admin hallitsee niitä
+  // Ympäristöt-sivulla. channel 'email' = uutiskirje -> sähköpostin upotuskoodi.
+  let environments = [];
+  const envChannel = (name) => (environments.find((e) => e.name === name) || {}).channel || 'web';
+  const pager = UI.pager(document.getElementById('placements-pager'), () => render());
 
   // width/height ovat mainospaikan koko: mainostagi skaalaa kuvan tähän kokoon.
   // Kentät wireframen järjestyksessä (Nimi, Koodi, Leveys, Korkeus, Status).
@@ -36,6 +40,7 @@
       help: 'Nimen on oltava yksilöllinen.' },
     { name: 'code', label: 'Koodi', required: isNew, maxlength: 64, pattern: '[a-z0-9_]{2,64}', wide: true,
       readonly: !isNew, placeholder: 'louhi_konsoli_paabanneri',
+      patternMessage: '2–64 merkkiä: vain pienet kirjaimet a–z, numerot ja alaviiva _.',
       help: isNew
         ? 'Ehdotetaan nimestä. Vain pienet kirjaimet a–z, numerot ja _. Käytetään upotuskoodissa.'
         : 'Koodia ei voi muuttaa, koska se on upotettu sivustojen koodiin.' },
@@ -45,7 +50,8 @@
       options: [{ value: 'active', label: 'Aktiivinen' }, { value: 'paused', label: 'Keskeytetty' },
         { value: 'inactive', label: 'Ei aktiivinen' }] },
     { name: 'environment', label: 'Ympäristö', type: 'select', required: true,
-      options: ENVIRONMENTS.map((e) => ({ value: e, label: e })) },
+      help: 'Uusia ympäristöjä voi luoda Ympäristöt-sivulla (admin).',
+      options: environments.map((e) => ({ value: e.name, label: e.name })) },
   ];
 
   /**
@@ -159,11 +165,12 @@
     countEl.textContent = `Kaikki mainospaikat (${placements.length})`;
     if (!placements.length) {
       UI.tableMessage(tbody, COLS, 'Ei vielä mainospaikkoja. Luo ensimmäinen yläkulman painikkeesta.');
+      pager.slice([]);
       return;
     }
     // Wireframen sarakkeet: nimi, koodi, koko, status, toiminnot. Ympäristö näytetään nimen
     // alla ja upotuskoodin linkki koodin alla.
-    tbody.innerHTML = placements.map((p) => `
+    tbody.innerHTML = pager.slice(placements).map((p) => `
       <tr>
         <td>${UI.esc(p.name)}<span class="cell-sub">${UI.esc(p.environment)}</span></td>
         <td class="cell-mono">${UI.esc(p.code)}
@@ -178,11 +185,19 @@
       </tr>`).join('');
   };
 
+  /** Hakee ympäristöt (lomakkeen valinta ja upotuskoodin kanava). Lupaus talteen, jotta
+      lomake voi odottaa sitä, jos se avataan ennen kuin lista on ehtinyt latautua. */
+  let envReady = null;
+  const loadEnvironments = () => {
+    envReady = Api.get('/api/environments').then((list) => { environments = list; });
+    return envReady;
+  };
+
   /** Hakee mainospaikat palvelimelta ja piirtää taulukon. */
   const load = async () => {
     UI.tableMessage(tbody, COLS, 'Ladataan…');
     try {
-      placements = await Api.get('/api/placements');
+      [placements] = await Promise.all([Api.get('/api/placements'), loadEnvironments()]);
       render();
     } catch (err) {
       UI.tableMessage(tbody, COLS, err.message, true);
@@ -193,17 +208,19 @@
    * Avaa "Uusi mainospaikka"- tai "Muokkaa mainospaikkaa" -lomakkeen (vain admin).
    * placement = null -> uusi mainospaikka.
    */
-  const openEditor = (placement) => {
+  const openEditor = async (placement) => {
+    // Ympäristölista tarvitaan lomakkeelle: odotetaan, jos se on vielä latautumassa
+    try { await (envReady || loadEnvironments()); } catch { /* lista jää tyhjäksi, virhe näkyy tallennettaessa */ }
     const isNew = !placement;
     const f = fields(isNew);
     const envField = f.find((x) => x.name === 'environment');
-    if (placement && !ENVIRONMENTS.includes(placement.environment)) {
+    if (placement && !environments.some((e) => e.name === placement.environment)) {
       envField.options = [...envField.options, { value: placement.environment, label: placement.environment }];
     }
     UI.openForm({
       title: isNew ? 'Uusi mainospaikka' : 'Muokkaa mainospaikkaa',
       fields: f,
-      values: placement || { status: 'active', environment: ENVIRONMENTS[0] },
+      values: placement || { status: 'active', environment: environments[0]?.name },
       submitLabel: isNew ? 'Hyväksy' : 'Tallenna muutokset',
       onRender: (form) => {
         attachNameCheck(form, placement ? placement.id : null);
@@ -263,18 +280,34 @@
    */
   const showEmbed = (p) => {
     const origin = window.location.origin;
-    const code =
-`<div class="louhi-ad" data-placement="${p.code}"></div>
+    const isEmail = envChannel(p.environment) === 'email';
+    // Sähköposti (uutiskirje): ei JavaScriptiä, vaan kuva + linkki. {{ID}} korvataan
+    // lähetyksessä vastaanottajakohtaisella tunnisteella (esim. Mailchimpissa *|UNIQID|*),
+    // jotta kuva ja linkki osoittavat samaan mainokseen (ks. serving.py, email-reitit).
+    const emailQuery = `placement=${p.code}&amp;r={{ID}}`;
+    const code = isEmail
+      ? `<a href="${origin}/api/v1/email/click?${emailQuery}" target="_blank">
+  <img src="${origin}/api/v1/email/img?${emailQuery}"
+       width="${p.width}" alt="Mainos" style="display:block;border:0;max-width:100%;height:auto">
+</a>`
+      : `<div class="louhi-ad" data-placement="${p.code}"></div>
 <script src="${origin}/louhi-ads.js" async></script>`;
+    const intro = isEmail
+      ? `Lisää tämä HTML uutiskirjeen pohjaan kohtaan, jossa mainos näytetään (${p.width} px leveä).
+         Korvaa <code>{{ID}}</code> lähetysohjelman vastaanottajakohtaisella tunnisteella
+         (esim. Mailchimp: <code>*|UNIQID|*</code>). Näyttö kirjataan, kun kuva avataan, ja klikki,
+         kun linkkiä klikataan.`
+      : `Lisää tämä koodi sivulle kohtaan, jossa mainos näytetään (${p.width} × ${p.height} px).
+         Skripti tarvitsee lisätä sivulle vain kerran, vaikka mainospaikkoja olisi useita.`;
+    const testLink = isEmail
+      ? '<a class="btn btn-secondary" href="/newsletter/" target="_blank">Testaa uutiskirjedemossa</a>'
+      : `<a class="btn btn-secondary" href="/ad-demo.html?placement=${encodeURIComponent(p.code)}" target="_blank">Testaa demosivulla</a>`;
     const dialog = UI.openInfo(`Upotuskoodi: ${p.name}`, `
-      <p class="cell-muted" style="margin-bottom:12px">
-        Lisää tämä koodi sivulle kohtaan, jossa mainos näytetään (${p.width} × ${p.height} px).
-        Skripti tarvitsee lisätä sivulle vain kerran, vaikka mainospaikkoja olisi useita.
-      </p>
+      <p class="cell-muted" style="margin-bottom:12px">${intro}</p>
       <pre class="code-block">${UI.esc(code)}</pre>
       <div class="modal-footer" style="padding:16px 0 0;background:none;border:none">
         <span class="spacer"></span>
-        <a class="btn btn-secondary" href="/ad-demo.html?placement=${encodeURIComponent(p.code)}" target="_blank">Testaa demosivulla</a>
+        ${testLink}
         <button class="btn btn-primary" data-copy>Kopioi</button>
       </div>`);
     // Leikepöytä-API voi epäonnistua (esim. ei HTTPS:ää tai lupa evätty) -> ohjeistetaan käsin.

@@ -36,7 +36,9 @@
       options: [{ value: 'true', label: 'Aktiivinen' }, { value: 'false', label: 'Ei käytössä' }] },
     { name: 'password', label: isNew ? 'Salasana' : 'Uusi salasana', type: 'password', wide: true,
       required: isNew, help: isNew ? `Vähintään ${Auth.minPasswordLength()} merkkiä. Käyttäjä voi vaihtaa sen itse kirjauduttuaan.`
-                                   : 'Jätä tyhjäksi, jos salasanaa ei vaihdeta.' },
+                                   : 'Jätä tyhjäksi, jos salasanaa ei vaihdeta.',
+      validate: (v) => (v && v.length < Auth.minPasswordLength()
+        ? `Salasanan on oltava vähintään ${Auth.minPasswordLength()} merkkiä pitkä.` : '') },
   ];
 
   const roleLabel = (r) => (r === 'admin' ? 'Admin' : 'Editor');

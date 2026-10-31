@@ -27,11 +27,12 @@ LouhiAds/
             ├── auth.py        /api/auth        kirjautuminen
             ├── users.py       /api/users       käyttäjät (vain Admin)
             ├── advertisers.py /api/advertisers mainostajat
+            ├── environments.py /api/environments ympäristöt (muokkaus vain Admin)
             ├── placements.py  /api/placements  mainospaikat
             ├── campaigns.py   /api/campaigns   kampanjat
             ├── creatives.py   /api/creatives   mainokset + kuvan lataus
             ├── stats.py       /api/stats       dashboard ja raportointi, CSV
-            └── serving.py     /api/v1          mainostagin rajapinnat (julkiset)
+            └── serving.py     /api/v1          mainosten jakelu ja seuranta (julkiset)
 ```
 
 ## Asennus (Windows, PowerShell) – ensimmäinen kerta
@@ -86,6 +87,7 @@ psql -U postgres -d louhiads -f ..\db\migrations\005_creative_placements.sql    
 psql -U postgres -d louhiads -f ..\db\migrations\006_placings.sql                  # sijoitukset (PLACING)
 psql -U postgres -d louhiads -f ..\db\migrations\007_campaign_placements.sql       # kampanjan sallitut paikat
 psql -U postgres -d louhiads -f ..\db\migrations\008_painoarvo.sql                 # painoarvo (paino + prioriteetti yhdeksi)
+psql -U postgres -d louhiads -f ..\db\migrations\009_environments.sql             # ympäristöt + uutiskirjeen mainospaikat
 ```
 
 Vaihtoehto kehityskoneella: rakenna kanta alusta (poistaa datan) komennolla
@@ -136,6 +138,8 @@ Kaikki dokumentoitu ja kokeiltavissa: http://localhost:8000/docs
 | PUT/DELETE | `/api/users/{id}` | Admin | Käyttäjän muokkaus / poisto |
 | GET | `/api/advertisers`, `/api/advertisers/{id}` | kirjautunut | Mainostajat |
 | POST/PUT/DELETE | `/api/advertisers[/{id}]` | Admin | Mainostajan luonti / muokkaus / poisto |
+| GET | `/api/environments` | kirjautunut | Ympäristöt (+ mainospaikkojen määrä) |
+| POST/PUT/DELETE | `/api/environments[/{id}]` | Admin | Ympäristön luonti / muokkaus / poisto (ei, jos paikkoja) |
 | GET | `/api/placements`, `/api/placements/{id}` | kirjautunut | Mainospaikat |
 | POST/PUT/DELETE | `/api/placements[/{id}]` | Admin | Mainospaikan luonti / muokkaus / poisto |
 | GET/POST | `/api/campaigns?status=&advertiser_id=&q=` | kirjautunut | Kampanjat (suodattimet) / luonti |
@@ -145,10 +149,14 @@ Kaikki dokumentoitu ja kokeiltavissa: http://localhost:8000/docs
 | GET/POST | `/api/creatives?campaign_id=&unassigned=` | kirjautunut | Mainokset / luonti (kampanja valinnainen) |
 | GET/PUT/DELETE | `/api/creatives/{id}` | kirjautunut | Yksi mainos |
 | GET | `/api/stats/summary` | kirjautunut | Dashboardin luvut tältä päivältä |
-| GET | `/api/stats/report?group_by=&start=&end=&campaign_id=` | kirjautunut | Raportti (`campaign`, `creative`, `placement`, `day`; oletus 30 pv) |
+| GET | `/api/stats/report?group_by=&start=&end=&advertiser_id=&campaign_id=` | kirjautunut | Raportti (`advertiser`, `campaign`, `creative`, `placement`, `day`; oletus 30 pv) |
 | GET | `/api/stats/report.csv` | kirjautunut | Sama CSV:nä (Excel-yhteensopiva) |
-| GET | `/api/v1/ad?placement=<code>` | julkinen | Mainostagi: arvottu mainos tai 204 |
-| GET | `/api/v1/click/{creative_id}?placement=<id>` | julkinen | Klikkaus + 302-ohjaus UTM-parametreilla |
+| GET | `/api/v1/ad?placement=<code>` | julkinen | Mainostagi: arvottu mainos tai 204 (ei vielä kirjaa näyttöä) |
+| POST | `/api/v1/view?t=<token>` | julkinen | Näytön kirjaus, kun mainos on näkynyt (50 % / 1 s) |
+| GET | `/api/v1/click/{impression_id}` | julkinen | Klikkaus näytölle + 302-ohjaus UTM-parametreilla |
+| GET | `/api/v1/click?t=<token>` | julkinen | Klikkaus ennen näytön kirjausta (kirjaa näytön ja klikin) |
+| GET | `/api/v1/email/img?placement=&r=` | julkinen | Uutiskirje: näyttö kirjataan kuvan avauksesta, 302 kuvaan |
+| GET | `/api/v1/email/click?placement=&r=` | julkinen | Uutiskirje: klikki + 302 (utm_medium=newsletter) |
 | GET | `/api/health` | julkinen | `{"status":"ok"}` = tietokantayhteys toimii |
 
 Virheet palautetaan suomeksi: 401 (ei kirjautunut), 403 (ei oikeuksia), 404 (ei löydy),
@@ -194,7 +202,20 @@ Virheet palautetaan suomeksi: 401 (ei kirjautunut), 403 (ei oikeuksia), 404 (ei 
    kaikkien painoarvojen summa. Painoarvo (0–100, oletus 50) annetaan mainoslomakkeella ja
    tallennetaan sarakkeeseen `placings.priority` (tietokantakaavion PLACING.priority).
    Sama sääntö koskee kampanjan mainoksia ja irtomainoksia. Sarake `weight` ei ole käytössä.
-3. Näyttö kirjataan. Jos ehdokkaita ei ole, vastaus on 204 ja mainospaikka jää tyhjäksi.
+3. Jos ehdokkaita ei ole, vastaus on 204 ja mainospaikka jää tyhjäksi.
+
+### Näyttöjen ja klikkien seuranta
+- **Verkkosivu:** `/api/v1/ad` vain valitsee mainoksen. Mainostagi kirjaa näytön (`POST /api/v1/view`)
+  vasta, kun kuva on latautunut ja vähintään 50 % mainoksesta on ollut näkyvissä yhtäjaksoisesti
+  1 sekunnin aktiivisessa välilehdessä (IAB:n näkyvyysstandardi). Mainoksenestäjän piilottamat ja
+  vierittämättä jääneet mainokset eivät kasvata lukuja.
+- Näytön jälkeen mainoksen linkki osoittaa `/api/v1/click/{näytön id}`. Jos käyttäjä klikkaa ennen
+  näytön kirjausta, linkki `/api/v1/click?t=` kirjaa ensin näytön ja sitten klikin.
+- Tunniste `t` on allekirjoitettu (HMAC-SHA256) ja vanhenee (näyttö 1 h, klikki 24 h). Avain on
+  ympäristömuuttuja `TRACKING_SECRET`, tai sen puuttuessa tietokantaosoitteesta johdettu avain.
+- **Uutiskirje (sähköposti):** JavaScript ei toimi, joten mainos on kuva linkin sisällä.
+  Näyttö kirjataan kuvan avauksesta, klikki linkistä. `r` = vastaanottajan tunniste, jonka avulla
+  kuva ja linkki arpovat saman mainoksen. Ilman mainosta palautetaan läpinäkyvä 1 px korkea kuva.
 
 Samat todennäköisyydet näkyvät Mainospaikat-sivun Näkyvyys-näkymässä
 (`GET /api/placements/{id}/visibility`).
@@ -207,6 +228,8 @@ Samat todennäköisyydet näkyvät Mainospaikat-sivun Näkyvyys-näkymässä
 | http://localhost:8000/login.html | Kirjautuminen |
 | http://localhost:8000/docs | Rajapintadokumentaatio |
 | http://localhost:8000/ad-demo.html | Mainostagin testisivu (julkinen) |
+| http://localhost:8000/demopage/ | Demosivu (julkinen) |
+| http://localhost:8000/newsletter/ | Uutiskirjedemo (julkinen) |
 
 ## Vianetsintä
 

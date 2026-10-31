@@ -6,6 +6,9 @@
      <script src="https://ads.louhi.fi/louhi-ads.js" async></script>
 
    - Hakee jokaiselle .louhi-ad-elementille mainoksen palvelimelta.
+   - Kirjaa näytön vasta, kun mainos on oikeasti näkynyt: kuva latautunut ja
+     vähintään 50 % mainoksesta näkyvissä yhtäjaksoisesti 1 sekunnin
+     (IAB:n näkyvyysstandardi). Klikki kirjataan palvelimen klikkiosoitteella.
    - Ei koskaan hidasta tai riko sivua: lyhyt aikakatkaisu, kaikki
      virheet ohitetaan hiljaa ja mainospaikka jää tyhjäksi.
    - Myöhemmin sivulle lisätyt mainospaikat: window.LouhiAds.refresh()
@@ -14,7 +17,8 @@
    testisivulla ad-demo.html. EI hallintapaneelin sivuilla.
    Riippuvuudet: ei mitään. Tiedosto on tarkoituksella itsenäinen, koska
    isäntäsivulla ei ole api.js:ää tai ui.js:ää. Backendistä käytetään
-   julkista rajapintaa GET /api/v1/ad (ks. backend/app/routers/serving.py).
+   julkista rajapintaa GET /api/v1/ad ja POST /api/v1/view
+   (ks. backend/app/routers/serving.py).
 
    Miksi vanhanaikainen tyyli (var, function, ei nuolifunktioita)?
    Skripti ajetaan vieraalla sivulla, jonka selaimia emme tunne; ES5-tyyli
@@ -27,6 +31,9 @@
   // Mainoshaun enimmäisaika. Hidas mainospalvelin ei saa jättää paikkaa
   // odottamaan pitkäksi aikaa; aikakatkaisun jälkeen paikka jää tyhjäksi.
   var TIMEOUT_MS = 3000;
+  // Näkyvyysehto näytön kirjaukselle: osuus mainoksesta ja yhtäjaksoinen aika
+  var VIEW_RATIO = 0.5;
+  var VIEW_MS = 1000;
   // currentScript on luettava heti tässä: myöhemmin (esim. DOMContentLoaded-
   // käsittelijässä) se on null.
   var script = document.currentScript;
@@ -88,6 +95,54 @@
     el.appendChild(link);
     // Näytetyn mainoksen id talteen: helpottaa vianetsintää selaimen kehitystyökaluilla
     el.setAttribute('data-louhi-creative', ad.creative_id);
+
+    // Näyttö kirjataan vasta, kun kuva on latautunut ja mainos näkyvissä (trackView).
+    // Jos kuva ei lataudu (esim. estetty), näyttöä ei kirjata.
+    if (img.complete && img.naturalWidth) trackView(link, ad);
+    else img.addEventListener('load', function () { trackView(link, ad); });
+  }
+
+  /**
+   * Kirjaa näytön, kun vähintään VIEW_RATIO mainoksesta on ollut näkyvissä VIEW_MS
+   * yhtäjaksoisesti ja välilehti on aktiivinen. Kirjataan vain kerran mainosta kohden.
+   * Palvelin palauttaa klikkiosoitteen, joka liittää klikin juuri tähän näyttöön;
+   * sitä ennen linkki osoittaa osoitteeseen, joka kirjaa klikatessa näytön ja klikin.
+   * @param {HTMLAnchorElement} link  mainoksen linkki (näkyvyyttä seurataan tästä)
+   * @param {object} ad               palvelimen vastaus (view_url)
+   */
+  function trackView(link, ad) {
+    if (!ad.view_url) return;
+    var done = false;
+    var timer = null;
+    var visible = false;
+    var observer = null;
+
+    function send() {
+      if (done) return;
+      done = true;
+      if (observer) observer.disconnect();
+      document.removeEventListener('visibilitychange', check);
+      fetch(ad.view_url, { method: 'POST', credentials: 'omit', keepalive: true })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (data) { if (data && data.click_url) link.href = data.click_url; })
+        .catch(function () { /* seuranta ei saa rikkoa sivua */ });
+    }
+
+    // Ajastin käy vain, kun mainos on näkyvissä JA välilehti on aktiivinen
+    function check() {
+      var shown = visible && document.visibilityState !== 'hidden';
+      if (shown && !timer) timer = setTimeout(send, VIEW_MS);
+      if (!shown && timer) { clearTimeout(timer); timer = null; }
+    }
+
+    // Hyvin vanhat selaimet ilman IntersectionObserveria: kirjataan latautuneena
+    if (!window.IntersectionObserver) { send(); return; }
+    observer = new IntersectionObserver(function (entries) {
+      visible = entries[entries.length - 1].intersectionRatio >= VIEW_RATIO;
+      check();
+    }, { threshold: [0, VIEW_RATIO, 1] });
+    observer.observe(link);
+    document.addEventListener('visibilitychange', check);
   }
 
   /**

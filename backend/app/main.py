@@ -31,7 +31,8 @@ from psycopg import errors as pg_errors
 from .auth import SESSION_COOKIE, get_current_user, user_for_token
 from .db import pool
 from .media import get_image
-from .routers import advertisers, auth, campaigns, creatives, placements, serving, stats, users
+from .routers import (advertisers, auth, campaigns, creatives, environments, placements, serving,
+                      stats, users)
 
 
 @asynccontextmanager
@@ -68,8 +69,9 @@ app.add_middleware(
 # HTML-sivut, jotka näkyvät ilman kirjautumista
 PUBLIC_PAGES = {"/login.html", "/ad-demo.html"}
 # Kansiot, joiden kaikki sivut ovat julkisia. demopage/ on esimerkkiasiakkaan
-# verkkosivu, jolla mainospaikkoja testataan, joten sen pitää aueta kenelle tahansa.
-PUBLIC_PREFIXES = ("/demopage/",)
+# verkkosivu ja newsletter/ esimerkkiuutiskirje, joilla mainospaikkoja testataan,
+# joten niiden pitää aueta kenelle tahansa.
+PUBLIC_PREFIXES = ("/demopage/", "/newsletter/")
 
 
 def _has_valid_session(token: str | None) -> bool:
@@ -148,10 +150,10 @@ def integrity_error(request: Request, exc: pg_errors.IntegrityError):
 
 
 # Hallinta-API vaatii kirjautumisen. Admin-oikeudet tarkistetaan reitti-
-# kohtaisesti (users.py, sekä placements/advertisers -kirjoitusoperaatiot).
+# kohtaisesti (users.py, sekä environments/placements/advertisers -kirjoitusoperaatiot).
 # dependencies=[...] ajaa get_current_user-tarkistuksen ennen jokaista routerin
 # reittiä; puuttuva tai vanhentunut sessio -> HTTP 401.
-for r in (advertisers, placements, campaigns, creatives, stats, users):
+for r in (advertisers, environments, placements, campaigns, creatives, stats, users):
     app.include_router(r.router, dependencies=[Depends(get_current_user)])
 
 # Julkiset: kirjautuminen sekä mainostagin kutsut (/api/v1/ad, /api/v1/click)

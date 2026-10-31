@@ -77,9 +77,14 @@ const Auth = (() => {
       submitLabel: 'Vaihda salasana',
       fields: [
         { name: 'current_password', label: 'Nykyinen salasana', type: 'password', required: true, wide: true, autocomplete: 'current-password' },
-        { name: 'new_password', label: 'Uusi salasana', type: 'password', required: true, wide: true, help: `Vähintään ${minPw()} merkkiä.` },
+        { name: 'new_password', label: 'Uusi salasana', type: 'password', required: true, wide: true, help: `Vähintään ${minPw()} merkkiä.`,
+          validate: (v) => (v.length < minPw() ? `Salasanan on oltava vähintään ${minPw()} merkkiä pitkä.` : '') },
         { name: 'confirm', label: 'Vahvista uusi salasana', type: 'password', required: true, wide: true },
       ],
+      // Wireframe: täsmäämättömästä vahvistuksesta virheilmoitus (punaisena kentän alla)
+      validate: (data) => ({
+        confirm: data.confirm && data.new_password !== data.confirm ? 'Salasanat eivät täsmää.' : '',
+      }),
       onSubmit: async (data) => {
         // Wireframe: täsmäämättömästä vahvistuksesta virheilmoitus lomakkeella
         if (data.new_password !== data.confirm) throw new Error('Salasanat eivät täsmää.');

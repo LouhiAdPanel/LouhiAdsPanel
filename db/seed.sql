@@ -18,6 +18,16 @@ INSERT INTO advertisers (name, website_url, status) VALUES
   ('Goodi',   'https://www.goodi.fi/',   'active'),
   ('Louhi',   'https://www.louhi.fi/',   'active');
 
+-- Ympäristöt (Ympäristöt-sivu). channel: web = verkkosivu, email = sähköposti
+INSERT INTO environments (name, channel, description) VALUES
+  ('Louhi Konsoli',        'web',   NULL),
+  ('www',                  'web',   NULL),
+  ('Domain Control Panel', 'web',   NULL),
+  ('Tukiportaali',         'web',   NULL),
+  ('cPanel',               'web',   NULL),
+  ('LouhiDemo-sivusto',    'web',   'Demosivu (demopage/), jolla mainospaikkoja testataan.'),
+  ('Uutiskirje',           'email', 'Louhen asiakasuutiskirje (sähköposti, 600 px leveä).');
+
 -- Mainospaikat (luku 3)
 INSERT INTO placements (name, code, environment, width, height, status) VALUES
   ('Louhi Konsoli – pääbanneri',     'louhi_console_main',    'Louhi Konsoli',          1200, 300, 'active'),
@@ -28,7 +38,10 @@ INSERT INTO placements (name, code, environment, width, height, status) VALUES
   -- Demosivun (demopage/) mainospaikat, ks. migrations/004_demopage_placements.sql
   ('Demo hero',                      'louhi_demo_hero',        'LouhiDemo-sivusto',      300, 600, 'active'),
   ('Demo banneri',                   'louhi_demo_banneri',     'LouhiDemo-sivusto',      728,  90, 'active'),
-  ('Demo sivun loppu',               'louhi_demo_sivun_loppu', 'LouhiDemo-sivusto',      300, 250, 'active');
+  ('Demo sivun loppu',               'louhi_demo_sivun_loppu', 'LouhiDemo-sivusto',      300, 250, 'active'),
+  -- Uutiskirjedemon (newsletter/) mainospaikat, ks. migrations/009_environments.sql
+  ('Uutiskirje – yläbanneri',        'louhi_uutiskirje_yla',     'Uutiskirje',           600, 200, 'active'),
+  ('Uutiskirje – sisältömainos',     'louhi_uutiskirje_sisalto', 'Uutiskirje',           600, 300, 'active');
 
 -- Kampanjat (vastaavat campaigns.html:n esimerkkirivejä)
 INSERT INTO campaigns (advertiser_id, name, start_time, end_time, status, utm_campaign)

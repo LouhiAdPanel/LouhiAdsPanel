@@ -33,8 +33,10 @@ LouhiAds/
 ├── placements.html          mainospaikat ja upotuskoodit
 ├── reporting.html           raportointi ja CSV-vienti
 ├── users.html               käyttäjähallinta (Admin)
+├── environments.html        ympäristöt (Admin)
 ├── ad-demo.html             mainostagin testisivu
 ├── demopage/               esimerkkiasiakkaan sivusto, jossa 3 mainospaikkaa (julkinen)
+├── newsletter/             uutiskirjedemo, jossa 2 sähköpostin mainospaikkaa (julkinen)
 ├── louhi-ads.js             mainostagi
 ├── css/style.css            tyylit
 ├── js/
@@ -77,7 +79,8 @@ Mainospaikka lisätään Louhen sivulle näin (valmis koodi löytyy Mainospaikat
 <script src="http://localhost:8000/louhi-ads.js" async></script>
 ```
 
-Tagi hakee mainospaikalle sopivan mainoksen, näyttää sen ja kirjaa näytön. Klikkaus kirjataan
+Tagi hakee mainospaikalle sopivan mainoksen ja näyttää sen. Näyttö kirjataan vasta, kun vähintään
+puolet mainoksesta on ollut näkyvissä sekunnin. Klikkaus kirjataan
 ja käyttäjä ohjataan kohdesivulle UTM-parametreilla. Jos mainosta ei ole tai palvelin ei vastaa,
 mainospaikka jää tyhjäksi eikä sivu hidastu. Testaus: http://localhost:8000/ad-demo.html
 
@@ -86,6 +89,16 @@ jolle on upotettu kolme mainospaikkaa: `louhi_demo_hero` (300 × 600), `louhi_de
 (728 × 90) ja `louhi_demo_sivun_loppu` (300 × 250). Mainospaikat luodaan migraatiolla
 `db/migrations/004_demopage_placements.sql`. Mainos ilmestyy paikkaan, kun aktiivinen mainos
 sijoitetaan siihen Mainokset-sivulla. Tyhjä paikka näkyy katkoviivoitettuna.
+
+**Uutiskirjedemo** (`newsletter/`, http://localhost:8000/newsletter/) näyttää, miten mainokset näkyvät
+sähköpostiuutiskirjeessä. Uutiskirjeessä ei voi käyttää JavaScriptiä, joten mainos on kuva linkin
+sisällä (`/api/v1/email/...`). Mainospaikat `louhi_uutiskirje_yla` (600 × 200) ja
+`louhi_uutiskirje_sisalto` (600 × 300) kuuluvat ympäristöön Uutiskirje (migraatio `009_environments.sql`).
+Valmis upotuskoodi löytyy Mainospaikat-sivun Upotuskoodi-painikkeesta.
+
+**Ympäristöt** (Admin): Louhen palvelut ja kanavat, joihin mainospaikkoja luodaan. Kanava `web`
+käyttää mainostagia, `email` sähköpostin kuva+linkki-upotusta. Ympäristöä, jossa on mainospaikkoja,
+ei voi poistaa. Listasivut (mainokset, kampanjat, mainospaikat, ympäristöt) näyttävät 20 riviä sivulla.
 
 **Sijoitukset (placings):** mainos kuuluu mainostajalle, ja kampanja on valinnainen. Mainosta
 lisättäessä valitaan mainospaikat (vähintään yksi); jokaisesta tulee sijoitus, jolla on oma painoarvo

@@ -153,10 +153,11 @@ const UI = (() => {
      Muita kentän asetuksia: placeholder, pattern, min, max, maxlength,
      readonly, wide (koko levyinen), numeric (muunna luvuksi), emptyValue
      (arvo tyhjälle kentälle, oletus null), accept/upload/onUploaded (image),
-     tooltip (?-ohje otsikon perässä).
+     tooltip (?-ohje otsikon perässä), validate (kentän oma tarkistus), patternMessage.
      Lomakkeen muut asetukset: deleteLabel, deleteConfirm (vahvistuskysymys),
      deleteConfirmLabel (vahvistuspainikkeen teksti, esim. 'Kyllä'),
-     busyLabel (painikkeen teksti käsittelyn aikana). Jos onSubmit palauttaa false,
+     busyLabel (painikkeen teksti käsittelyn aikana), validate (lomakkeen yhteiset
+     tarkistussäännöt, ks. "Lomakkeen tarkistus" alla). Jos onSubmit palauttaa false,
      ikkuna jää auki ilman virheilmoitusta (esim. "Palaa takaisin muokkaamaan").
   */
 
@@ -196,7 +197,7 @@ const UI = (() => {
       const opts = (f.options || [])
         .map((o) => `<option value="${esc(o.value)}" ${String(o.value) === String(value ?? '') ? 'selected' : ''}>${esc(o.label)}</option>`)
         .join('');
-      return `<div class="field${wide}">${label}<select id="${id}" name="${f.name}" class="select" ${req}>${opts}</select>${help}</div>`;
+      return `<div class="field${wide}" data-field="${f.name}">${label}<select id="${id}" name="${f.name}" class="select" ${req}>${opts}</select>${help}</div>`;
     }
 
     // Monivalinta (esim. kampanjan mainospaikat). value = taulukko valittuja arvoja.
@@ -208,13 +209,13 @@ const UI = (() => {
       // Monivalinta pudotusvalikkona: <details> avautuu ja sulkeutuu ilman JavaScriptiä;
       // yhteenveto (valitut) päivitetään attachMultiselect-funktiossa.
       if (f.type === 'multiselect') {
-        return `<fieldset class="field field-wide"><legend>${esc(f.label)}${tip(f.tooltip)}</legend>
+        return `<fieldset class="field field-wide" data-field="${f.name}"><legend>${esc(f.label)}${f.required ? ' *' : ''}${tip(f.tooltip)}</legend>
           <details class="multiselect" data-multiselect="${f.name}">
             <summary class="select">${esc(f.placeholder || 'Valitse')}</summary>
             <div class="check-group">${boxes || '<span class="cell-muted">Ei vaihtoehtoja</span>'}</div>
           </details>${help}</fieldset>`;
       }
-      return `<fieldset class="field field-wide"><legend>${esc(f.label)}${tip(f.tooltip)}</legend><div class="check-group">${boxes || '<span class="cell-muted">Ei vaihtoehtoja</span>'}</div>${help}</fieldset>`;
+      return `<fieldset class="field field-wide" data-field="${f.name}"><legend>${esc(f.label)}${f.required ? ' *' : ''}${tip(f.tooltip)}</legend><div class="check-group">${boxes || '<span class="cell-muted">Ei vaihtoehtoja</span>'}</div>${help}</fieldset>`;
     }
 
     // Kuvakenttä: varsinainen arvo (ladatun kuvan URL) on piilokentässä, jonka
@@ -225,7 +226,7 @@ const UI = (() => {
         ? `<img src="${esc(value)}" alt="">`
         : '<span>Ei kuvaa</span>';
       return `
-        <div class="field field-wide image-field" data-image-field="${f.name}">
+        <div class="field field-wide image-field" data-field="${f.name}" data-image-field="${f.name}">
           <span class="field-label">${esc(f.label)}${f.required ? ' *' : ''}</span>
           <input type="hidden" name="${f.name}" value="${esc(value ?? '')}">
           <div class="image-drop" tabindex="-1">
@@ -246,10 +247,10 @@ const UI = (() => {
     }
 
     if (f.type === 'textarea') {
-      return `<div class="field field-wide">${label}<textarea id="${id}" name="${f.name}" class="input" rows="3" ${req} ${attrs}>${esc(value ?? '')}</textarea>${help}</div>`;
+      return `<div class="field field-wide" data-field="${f.name}">${label}<textarea id="${id}" name="${f.name}" class="input" rows="3" ${req} ${attrs}>${esc(value ?? '')}</textarea>${help}</div>`;
     }
 
-    return `<div class="field${wide}">${label}<input id="${id}" name="${f.name}" type="${f.type || 'text'}" class="input" value="${esc(value ?? '')}" ${req} ${attrs}>${help}</div>`;
+    return `<div class="field${wide}" data-field="${f.name}">${label}<input id="${id}" name="${f.name}" type="${f.type || 'text'}" class="input" value="${esc(value ?? '')}" ${req} ${attrs}>${help}</div>`;
   };
 
   /**
@@ -313,6 +314,7 @@ const UI = (() => {
       try {
         const result = await f.upload(file);
         hidden.value = result.image_url;
+        hidden.dispatchEvent(new Event('change', { bubbles: true })); // poistaa mahdollisen virheviestin
         urlInput.value = '';
         preview.innerHTML = `<img src="${esc(result.image_url)}" alt="">`;
         status.textContent = `${file.name} · ${result.width} × ${result.height} px`;
@@ -347,6 +349,7 @@ const UI = (() => {
       const img = new Image();
       img.onload = () => {
         hidden.value = url;
+        hidden.dispatchEvent(new Event('change', { bubbles: true }));
         preview.innerHTML = `<img src="${esc(url)}" alt="">`;
         status.textContent = `Kuva osoitteesta · ${img.naturalWidth} × ${img.naturalHeight} px`;
         if (f.onUploaded) f.onUploaded({ image_url: url, width: img.naturalWidth, height: img.naturalHeight }, form);
@@ -476,9 +479,139 @@ const UI = (() => {
    * joten vanhat arvot tai tapahtumankäsittelijät eivät jää roikkumaan.
    * @returns {HTMLDialogElement} avattu ikkuna
    */
+  /* ---------- Lomakkeen tarkistus (pakolliset ja virheelliset kentät) ----------
+     Kun käyttäjä painaa lomakkeen pääpainiketta (esim. Luo / Tallenna), jokainen kenttä
+     tarkistetaan. Virheellisen kentän alle tulee punainen viesti, joka kertoo mikä on
+     vialla (esim. "Mainoksen nimi on pakollinen tieto."), kenttä saa punaisen reunan, ja
+     lomakkeen alareunaan tulee yhteenveto ("Lomakkeesta puuttuu tietoja…"). Ensimmäinen
+     virheellinen kenttä vieritetään näkyviin ja fokusoidaan.
+     Kun kenttää korjataan, sen viesti päivittyy heti. Kentästä poistuttaessa (blur)
+     tarkistetaan myös kentät, joita käyttäjä on jo muokannut, joten puute näkyy
+     jo ennen tallennusyritystä.
+     Tarkistuksen lähteet:
+       - kentän HTML-säännöt (required, type=url/email/number, pattern, min, max, maxlength)
+       - pakollinen kuva (image) ja pakollinen valintaryhmä (checkboxes: vähintään yksi)
+       - kentän oma sääntö f.validate(value, form) -> virheteksti tai ''
+       - kentän setCustomValidity-viesti (esim. "Samanniminen mainospaikka on jo olemassa.")
+       - lomakkeen yhteiset säännöt openForm({ validate: (data) => ({ kenttä: 'viesti' }) }),
+         esim. päättymispäivä ennen aloituspäivää
+     f.patternMessage = selkokielinen ohje pattern-säännölle (muuten käytetään kentän ohjetta). */
+
+  /** Kentän virheteksti selaimen validointitilan perusteella ('' = kunnossa). */
+  const fieldMessage = (f, el) => {
+    const v = el.validity;
+    const label = f.label.replace(/\s*\*$/, '');
+    if (v.valid) return '';
+    if (v.valueMissing) {
+      return f.type === 'select' ? `Valitse ${label.toLowerCase()} – pakollinen tieto.`
+        : `${label} on pakollinen tieto.`;
+    }
+    if (v.badInput) return f.type === 'date' ? 'Anna päivämäärä muodossa pp.kk.vvvv.' : 'Anna luku.';
+    if (v.typeMismatch) {
+      if (f.type === 'url') return 'Anna kelvollinen osoite, joka alkaa http:// tai https://.';
+      if (f.type === 'email') return 'Anna kelvollinen sähköpostiosoite (esim. nimi@louhi.fi).';
+    }
+    if (v.rangeUnderflow || v.rangeOverflow) {
+      return f.min !== undefined && f.max !== undefined ? `Anna luku väliltä ${f.min}–${f.max}.`
+        : v.rangeUnderflow ? `Pienin sallittu arvo on ${f.min}.` : `Suurin sallittu arvo on ${f.max}.`;
+    }
+    if (v.stepMismatch) return 'Anna kokonaisluku.';
+    if (v.tooLong) return `Enintään ${f.maxlength} merkkiä.`;
+    if (v.patternMismatch) return f.patternMessage || (f.help ? `Arvo ei ole sallitussa muodossa. ${f.help}` : 'Arvo ei ole sallitussa muodossa.');
+    if (v.customError) return el.validationMessage;
+    return el.validationMessage || 'Tarkista tämä kenttä.';
+  };
+
+  /** Tarkistaa yhden kentän (ilman lomakkeen yhteisiä sääntöjä). Palauttaa virhetekstin tai ''. */
+  const checkField = (form, f) => {
+    if (f.type === 'checkboxes' || f.type === 'multiselect') {
+      if (!f.required) return '';
+      const checked = form.querySelectorAll(`input[name="${f.name}"]:checked:not(:disabled)`).length;
+      return checked ? '' : `Valitse vähintään yksi: ${f.label.replace(/\s*\*$/, '').toLowerCase()}.`;
+    }
+    const el = form.elements[f.name];
+    if (!el) return '';
+    if (f.type === 'image') {
+      if (form.dataset.uploading) return '';
+      return f.required && !el.value ? `${f.label}: lataa kuva (JPG tai PNG) tai anna kuvan osoite.` : '';
+    }
+    if (el.readOnly) return '';
+    const own = fieldMessage(f, el);
+    if (own) return own;
+    return f.validate ? (f.validate(el.value.trim(), form) || '') : '';
+  };
+
+  /** Näyttää tai poistaa kentän virheviestin (punainen teksti kentän alla, punainen reuna). */
+  const setFieldError = (form, name, message) => {
+    const box = form.querySelector(`[data-field="${name}"]`);
+    if (!box) return;
+    let msg = box.querySelector(':scope > .field-error');
+    box.classList.toggle('has-error', Boolean(message));
+    const control = box.querySelector('input:not([type=hidden]):not([type=checkbox]):not([type=file]), select, textarea');
+    if (control) control.setAttribute('aria-invalid', message ? 'true' : 'false');
+    if (!message) { if (msg) msg.remove(); return; }
+    if (!msg) {
+      msg = document.createElement('small');
+      msg.className = 'field-error';
+      msg.id = `err-${name}`;
+      msg.setAttribute('role', 'alert');
+      box.appendChild(msg);
+      if (control) control.setAttribute('aria-describedby', msg.id);
+    }
+    msg.textContent = message;
+  };
+
+  /**
+   * Tarkistaa koko lomakkeen ja näyttää virheet kenttien alla.
+   * @returns {string[]} virheellisten kenttien nimet lomakkeen järjestyksessä
+   */
+  const validateForm = (form, fields, formRule) => {
+    const errors = {};
+    fields.forEach((f) => { const m = checkField(form, f); if (m) errors[f.name] = m; });
+    if (formRule) {
+      const extra = formRule(readForm(form, fields), form) || {};
+      Object.entries(extra).forEach(([k, m]) => { if (m && !errors[k]) errors[k] = m; });
+    }
+    fields.forEach((f) => setFieldError(form, f.name, errors[f.name] || ''));
+    return fields.map((f) => f.name).filter((n) => errors[n]);
+  };
+
+  /** Kenttien tarkistus muokattaessa: korjaus poistaa viestin heti, puute näkyy kentästä poistuttaessa. */
+  const attachLiveValidation = (form, fields, formRule) => {
+    const touched = new Set();
+    const recheck = (name) => {
+      const f = fields.find((x) => x.name === name);
+      if (!f) return;
+      if (!(form.dataset.validated || touched.has(name))) return;
+      let m = checkField(form, f);
+      if (!m && formRule) m = (formRule(readForm(form, fields), form) || {})[name] || '';
+      setFieldError(form, name, m);
+      // Lomakkeen yhteinen sääntö voi koskea toista kenttää (esim. päivämääräpari)
+      if (formRule && form.dataset.validated) {
+        const extra = formRule(readForm(form, fields), form) || {};
+        fields.forEach((x) => {
+          if (x.name !== name && form.querySelector(`[data-field="${x.name}"].has-error`) && !checkField(form, x)) {
+            setFieldError(form, x.name, extra[x.name] || '');
+          }
+        });
+      }
+    };
+    const nameOf = (el) => el.closest('[data-field]')?.dataset.field;
+    form.addEventListener('input', (e) => {
+      const n = nameOf(e.target); if (!n) return;
+      touched.add(n);
+      // Kirjoitettaessa vain poistetaan korjattu virhe (ei uutta viestiä kesken kirjoituksen)
+      if (form.querySelector(`[data-field="${n}"].has-error`)) recheck(n);
+    });
+    form.addEventListener('change', (e) => { const n = nameOf(e.target); if (n) { touched.add(n); recheck(n); } });
+    form.addEventListener('focusout', (e) => { const n = nameOf(e.target); if (n) recheck(n); });
+    return recheck;
+  };
+
   const openForm = ({ title, fields, values = {}, submitLabel = 'Tallenna', onSubmit, onDelete, onRender,
                       deleteLabel = 'Poista', deleteConfirm = 'Haluatko varmasti poistaa? Toimintoa ei voi perua.',
-                      deleteConfirmLabel = 'Poista', busyLabel = 'Tallennetaan…', headerHtml = '' }) => {
+                      deleteConfirmLabel = 'Poista', busyLabel = 'Tallennetaan…', headerHtml = '',
+                      validate = null }) => {
     // Natiivi <dialog> + showModal(): selain hoitaa taustan estämisen, fokuksen
     // pysymisen ikkunassa ja Esc-näppäimen. novalidate: selain ei estä lähetystä
     // itse, vaan submit-käsittelijä tarkistaa kentät reportValidity():llä.
@@ -493,7 +626,8 @@ const UI = (() => {
         <div class="modal-body">
           ${headerHtml}
           <div class="form-grid">${fields.map((f) => renderField(f, values[f.name])).join('')}</div>
-          <div class="form-error" hidden></div>
+          ${fields.some((f) => f.required) ? '<p class="form-required-note">* = pakollinen tieto</p>' : ''}
+          <div class="form-error" role="alert" hidden></div>
         </div>
         <footer class="modal-footer">
           ${onDelete ? `<button type="button" class="btn btn-danger" data-action="delete">${esc(deleteLabel)}</button>` : ''}
@@ -523,12 +657,26 @@ const UI = (() => {
       // kunnes tallennus onnistuu ja virheet voidaan näyttää ikkunassa
       e.preventDefault();
       errorBox.hidden = true;
-      if (!form.reportValidity()) return;
       if (form.dataset.uploading) { showError('Odota, kuvaa ladataan vielä.'); return; }
-      // Pakollinen kuva tarkistetaan erikseen: piilokenttä ei osallistu
-      // selaimen required-validointiin
-      const missingImage = fields.find((f) => f.type === 'image' && f.required && !form.elements[f.name].value);
-      if (missingImage) { showError(`${missingImage.label}: lataa kuva (JPG tai PNG).`); return; }
+      // Kaikki kentät tarkistetaan: virheet kenttien alle ja yhteenveto lomakkeen alareunaan
+      form.dataset.validated = '1';
+      const invalid = validateForm(form, fields, validate);
+      if (invalid.length) {
+        const missing = invalid.filter((n) => {
+          const f = fields.find((x) => x.name === n);
+          const el = form.elements[n];
+          return f.required && (f.type === 'checkboxes' || f.type === 'image' || (el && el.validity && el.validity.valueMissing));
+        }).length;
+        showError(invalid.length === 1
+          ? (missing ? 'Pakollinen tieto puuttuu. Täydennä punaisella merkitty kenttä.'
+            : 'Lomakkeessa on virhe. Korjaa punaisella merkitty kenttä.')
+          : `Lomakkeessa on ${invalid.length} puuttuvaa tai virheellistä tietoa. Korjaa punaisella merkityt kentät.`);
+        const firstBox = form.querySelector(`[data-field="${invalid[0]}"]`);
+        firstBox.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        const focusEl = firstBox.querySelector('input:not([type=hidden]):not([readonly]), select, textarea, .image-drop');
+        if (focusEl) focusEl.focus({ preventScroll: true });
+        return;
+      }
       busy(true);
       submitBtn.textContent = busyLabel;
       try {
@@ -563,6 +711,7 @@ const UI = (() => {
       });
     }
 
+    attachLiveValidation(form, fields, validate);
     fields.filter((f) => f.type === 'image').forEach((f) => attachImageField(form, f));
     fields.filter((f) => f.type === 'multiselect').forEach((f) => attachMultiselect(form, f));
     if (onRender) onRender(form);
@@ -647,9 +796,73 @@ const UI = (() => {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTooltip(); });
 
   // Julkinen rajapinta: sivuskriptit käyttävät näitä muodossa UI.esc(...), UI.toast(...)
+  /* ---------- Sivutus (listasivut) ----------
+     Listat haetaan kokonaisina ja suodatetaan; sivutus näyttää niistä 20 riviä kerrallaan.
+     Käyttö listasivulla:
+       const pager = UI.pager(document.getElementById('x-pager'), () => render());
+       const rows = pager.slice(filteredList);   // tämän sivun rivit; piirtää myös navigaation
+       pager.reset();                            // suodatuksen muuttuessa takaisin sivulle 1
+     Navigaatio: < Edellinen  1 … 4 5 6 … 12  Seuraava >. Yhden sivun listassa se on piilossa.
+     Jos sivu jää tyhjäksi (esim. viimeisen sivun viimeinen rivi poistettiin), siirrytään
+     viimeiselle sivulle, jolla on rivejä. */
+  const PAGE_SIZE = 20;
+
+  /** Näytettävät sivunumerot: ensimmäinen, viimeinen ja nykyisen ympäristö; väliin '…'. */
+  const pageNumbers = (page, pages) => {
+    const wanted = new Set([1, pages, page - 1, page, page + 1].filter((n) => n >= 1 && n <= pages));
+    const sorted = [...wanted].sort((a, b) => a - b);
+    const out = [];
+    sorted.forEach((n, i) => {
+      if (i && n - sorted[i - 1] > 1) out.push(n - sorted[i - 1] === 2 ? n - 1 : '…');
+      out.push(n);
+    });
+    return out;
+  };
+
+  const pager = (container, onChange, pageSize = PAGE_SIZE) => {
+    let page = 1;
+    const draw = (total) => {
+      const pages = Math.max(1, Math.ceil(total / pageSize));
+      if (pages <= 1) { container.innerHTML = ''; container.hidden = true; return; }
+      container.hidden = false;
+      const first = (page - 1) * pageSize + 1;
+      const last = Math.min(page * pageSize, total);
+      container.innerHTML = `
+        <span class="pager-info">${first}–${last} / ${total}</span>
+        <nav class="pager-pages" aria-label="Sivutus">
+          <button type="button" class="pager-btn pager-prev" data-page="${page - 1}" ${page === 1 ? 'disabled' : ''}>‹ Edellinen</button>
+          ${pageNumbers(page, pages).map((n) => (n === '…'
+            ? '<span class="pager-gap">…</span>'
+            : `<button type="button" class="pager-btn${n === page ? ' is-current' : ''}" data-page="${n}"
+                 ${n === page ? 'aria-current="page"' : ''}>${n}</button>`)).join('')}
+          <button type="button" class="pager-btn pager-next" data-page="${page + 1}" ${page === pages ? 'disabled' : ''}>Seuraava ›</button>
+        </nav>`;
+    };
+    container.classList.add('pager');
+    container.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-page]');
+      if (!btn || btn.disabled) return;
+      page = Number(btn.dataset.page);
+      onChange();
+      // Lista alkaa sivun yläosasta: vieritetään listan alkuun, ettei jäädä sivun pohjalle
+      container.closest('.section-card')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+    return {
+      /** Palauttaa nykyisen sivun rivit ja piirtää navigaation. */
+      slice(list) {
+        const pages = Math.max(1, Math.ceil(list.length / pageSize));
+        if (page > pages) page = pages;
+        draw(list.length);
+        return list.slice((page - 1) * pageSize, page * pageSize);
+      },
+      reset() { page = 1; },
+      get page() { return page; },
+    };
+  };
+
   return {
     esc, fmtInt, fmtPct, fmtDate, fmtRange, isoToDateInput, dateInputToIso,
     STATUS, pill, tableMessage, toast, openForm, openInfo, choiceDialog, confirm: confirmDialog,
-    notice: noticeDialog, setMultiselectOptions,
+    notice: noticeDialog, setMultiselectOptions, pager, PAGE_SIZE,
   };
 })();

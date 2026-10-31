@@ -26,6 +26,8 @@
 (() => {
   const tbody = document.getElementById('campaigns-body');
   const countEl = document.getElementById('campaigns-count');
+  // Sivutus 20 kampanjaa/sivu (UI.pager). Hakuehdon muutos palaa sivulle 1.
+  const pager = UI.pager(document.getElementById('campaigns-pager'), () => render());
   const search = document.getElementById('campaign-search');
   const statusFilter = document.getElementById('campaign-status-filter');
   const advertiserFilter = document.getElementById('campaign-advertiser-filter');
@@ -84,7 +86,8 @@
       help: 'Valitse ensin mainostaja ja mainospaikat.',
       options: [] },
     { name: 'utm_campaign', label: 'UTM-kampanjatunniste', pattern: '[a-z0-9_\\-]+', wide: true,
-      placeholder: 'syyskampanja_2026', help: 'Näkyy mainostajan analytiikassa (utm_campaign). Pienet kirjaimet, numerot, _ ja -.' },
+      placeholder: 'syyskampanja_2026', help: 'Näkyy mainostajan analytiikassa (utm_campaign). Pienet kirjaimet, numerot, _ ja -.',
+      patternMessage: 'Käytä vain pieniä kirjaimia a–z, numeroita, alaviivaa _ ja viivaa - (ei välilyöntejä tai ääkkösiä).' },
   ];
 
   /**
@@ -128,9 +131,10 @@
     countEl.textContent = `Kampanjat (${campaigns.length})`;
     if (!campaigns.length) {
       UI.tableMessage(tbody, COLS, 'Ei hakuehtoja vastaavia kampanjoita.');
+      pager.slice([]);
       return;
     }
-    tbody.innerHTML = campaigns.map((c) => `
+    tbody.innerHTML = pager.slice(campaigns).map((c) => `
       <tr>
         <td>
           ${UI.esc(c.name)}
@@ -190,6 +194,17 @@
     UI.openForm({
       title: isNew ? 'Luo uusi kampanja' : 'Muokkaa kampanjaa',
       fields: fields(),
+      // Aktiivisella kampanjalla on oltava molemmat päivät (palvelin vaatii saman), ja
+      // päättymispäivä ei voi olla ennen aloituspäivää.
+      validate: (data) => {
+        const active = data.status === 'active';
+        return {
+          start_date: active && !data.start_date ? 'Aktiiviselle kampanjalle on annettava aloituspäivä.' : '',
+          end_date: active && !data.end_date ? 'Aktiiviselle kampanjalle on annettava päättymispäivä.'
+            : data.start_date && data.end_date && data.end_date < data.start_date
+              ? 'Päättymispäivä ei voi olla ennen aloituspäivää.' : '',
+        };
+      },
       values,
       submitLabel: isNew ? 'Luo kampanja' : 'Tallenna',
       onRender: (form) => attachCreativePicker(form, campaign, values.creative_ids),
@@ -233,13 +248,15 @@
 
   // Haku tehdään palvelimella, joten odotetaan 300 ms kirjoittamisen loppumista (debounce),
   // ettei jokainen näppäily lähetä omaa pyyntöä.
+  // Suodatuksen muuttuessa palataan sivutuksen ensimmäiselle sivulle.
+  const reload = () => { pager.reset(); load(); };
   let searchTimer;
   search.addEventListener('input', () => {
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(load, 300);
+    searchTimer = setTimeout(reload, 300);
   });
-  statusFilter.addEventListener('change', load);
-  advertiserFilter.addEventListener('change', load);
+  statusFilter.addEventListener('change', reload);
+  advertiserFilter.addEventListener('change', reload);
   document.getElementById('new-campaign').addEventListener('click', () => openEditor(null));
 
   // Etusivun "Luo uusi kampanja" -painike ohjaa tänne osoitteella campaigns.html#new

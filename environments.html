@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ympäristöt · Louhi Ads</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=25">
+</head>
+<body>
+<!-- Yläpalkki koko sivun levyisenä: logo vasemmalla, käyttäjä ja tilitoiminnot oikealla (auth.js) -->
+<header class="app-header">
+  <a class="app-header-brand" href="dashboard.html">
+    <span class="brand-mark">L</span>
+    <span class="brand-name">Louhi Ads</span>
+  </a>
+  <div class="app-header-user"></div>
+</header>
+<div class="app">
+
+  <aside class="sidebar">
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-link">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="1.5" width="6.5" height="6.5" rx="1"/><rect x="10" y="1.5" width="6.5" height="6.5" rx="1"/><rect x="1.5" y="10" width="6.5" height="6.5" rx="1"/><rect x="10" y="10" width="6.5" height="6.5" rx="1"/></svg>
+        Etusivu
+      </a>
+      <a href="advertisers.html" class="nav-link">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="2" width="11" height="14" rx="1"/><line x1="6.5" y1="5.5" x2="6.5" y2="5.5"/><line x1="9" y1="5.5" x2="9" y2="5.5"/><line x1="11.5" y1="5.5" x2="11.5" y2="5.5"/><line x1="6.5" y1="8.5" x2="6.5" y2="8.5"/><line x1="9" y1="8.5" x2="9" y2="8.5"/><line x1="11.5" y1="8.5" x2="11.5" y2="8.5"/><line x1="7.5" y1="16" x2="7.5" y2="12.5"/><line x1="10.5" y1="16" x2="10.5" y2="12.5"/></svg>
+        Mainostajat
+      </a>
+      <a href="campaigns.html" class="nav-link">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M2 7.5V11h2.4L11 14.5V4L4.4 7.5H2Z"/><path d="M14 6.5c.8.6 1.3 1.5 1.3 2.5s-.5 1.9-1.3 2.5"/></svg>
+        Kampanjat
+      </a>
+      <a href="creatives.html" class="nav-link">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="14" height="12" rx="1.2"/><circle cx="6.3" cy="7" r="1.3"/><path d="M2.5 13.5 7 9.5l3 2.8 2-1.8 3.5 3"/></svg>
+        Mainokset
+      </a>
+      <a href="placements.html" class="nav-link">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2.5" width="14" height="13" rx="1"/><line x1="2" y1="6.5" x2="16" y2="6.5"/></svg>
+        Mainospaikat
+      </a>
+      <a href="environments.html" class="nav-link active admin-only">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M9 2 16 5.5 9 9 2 5.5 9 2Z"/><path d="m2 9 7 3.5L16 9"/><path d="m2 12.5 7 3.5 7-3.5"/></svg>
+        Ympäristöt
+      </a>
+      <a href="reporting.html" class="nav-link">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="2" y1="16" x2="16" y2="16"/><rect x="3.5" y="10" width="3" height="6"/><rect x="7.7" y="6" width="3" height="10"/><rect x="11.9" y="3" width="3" height="13"/></svg>
+        Raportointi
+      </a>
+      <a href="users.html" class="nav-link admin-only">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="6" r="2.8"/><path d="M1.8 15.5c.6-2.8 2.7-4.3 5.2-4.3s4.6 1.5 5.2 4.3"/><path d="M12 3.6a2.6 2.6 0 0 1 0 5"/><path d="M13.6 11.4c1.4.6 2.3 2 2.6 4.1"/></svg>
+        Käyttäjät
+      </a>
+      <!-- Demolinkit rinnakkain: avautuvat uuteen välilehteen, erottuvat muista valikkonapeista -->
+      <div class="nav-demo-row">
+        <a href="/demopage/" class="nav-demo" target="_blank" rel="noopener" title="Avaa demosivu uuteen välilehteen">
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="9" r="7"/><path d="M2 9h14"/><path d="M9 2c2 2.2 2.8 4.6 2.8 7s-.8 4.8-2.8 7c-2-2.2-2.8-4.6-2.8-7S7 4.2 9 2Z"/></svg>
+          Demosivu
+        </a>
+        <a href="/newsletter/" class="nav-demo" target="_blank" rel="noopener" title="Avaa uutiskirjedemo uuteen välilehteen">
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="2" y="3.5" width="14" height="11" rx="1.2"/><path d="m2.5 4.5 6.5 5 6.5-5"/></svg>
+          Uutiskirjedemo
+        </a>
+      </div>
+    </nav>
+  </aside>
+
+  <main class="main-content">
+    <div class="topbar">
+      <div>
+        <h1>Ympäristöt</h1>
+        <p>Louhen palvelut ja kanavat, joihin mainospaikkoja luodaan (esim. Louhi Konsoli, www tai uutiskirje). Vain admin.</p>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-toolbar">
+        <h2 id="environments-count">Ympäristöt</h2>
+        <!-- Luontipainike otsikkorivin oikeassa reunassa -->
+        <div class="toolbar-actions">
+          <button class="btn btn-primary" id="new-environment" type="button">+ Uusi ympäristö</button>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Ympäristön nimi</th>
+            <th>Kanava</th>
+            <th>Mainospaikkoja</th>
+            <th class="cell-actions">Toiminnot</th>
+          </tr>
+        </thead>
+        <tbody id="environments-body"></tbody>
+      </table>
+      <div id="environments-pager"></div>
+    </div>
+  </main>
+</div>
+
+<!-- Footer (Louhi-linjaus: musta pohja, valkoiset otsikot, harmaat tekstit, oranssit korostukset) -->
+<footer class="app-footer">
+  <div class="app-footer-inner">
+    <div class="app-footer-brand">
+      <div class="app-footer-logo"><span class="brand-mark">L</span><span class="app-footer-name">Louhi Ads</span></div>
+      <p>Mainonnanhallinnan hallintapaneeli.<br>Laurea – Digital service project.</p>
+    </div>
+    <nav class="app-footer-col" aria-label="Pikalinkit">
+      <h4>Pikalinkit</h4>
+      <a href="campaigns.html">Kampanjat</a>
+      <a href="creatives.html">Mainokset</a>
+      <a href="placements.html">Mainospaikat</a>
+      <a href="reporting.html">Raportointi</a>
+    </nav>
+    <div class="app-footer-col">
+      <h4>Testaus</h4>
+      <a class="accent" href="/demopage/" target="_blank" rel="noopener">Demosivu →</a>
+      <a class="accent" href="/newsletter/" target="_blank" rel="noopener">Uutiskirjedemo →</a>
+      <a href="ad-demo.html" target="_blank" rel="noopener">Mainostagin testisivu</a>
+    </div>
+  </div>
+  <div class="app-footer-bottom">© 2026 Louhi Ads · <span class="accent">Kouluprojekti</span></div>
+</footer>
+  <script src="js/api.js?v=25"></script>
+  <script src="js/ui.js?v=25"></script>
+  <script src="js/auth.js?v=25"></script>
+  <script src="js/environments.js?v=25"></script>
+</body>
+</html>

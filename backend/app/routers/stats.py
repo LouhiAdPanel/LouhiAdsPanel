@@ -10,7 +10,8 @@ Oikeudet: kaikki kirjautuneet (main.py lisää kirjautumisvaatimuksen).
 Liittyy: luvut lasketaan serving.py:n kirjaamista näytöistä (impressions) ja klikeistä
 (clicks) näkymän v_daily_stats kautta (schema.sql), joka summaa ne päivittäin
 (Suomen aika) sijoituksittain; sijoituksesta saadaan mainostaja, mainos, kampanja ja
-mainospaikka. Kampanja voi puuttua (mainos ilman kampanjaa) -> raportissa
+mainospaikka. Raportin voi rajata mainostajaan ja/tai kampanjaan.
+Näyttö kirjataan vasta, kun mainos on oikeasti näkynyt (serving.py). Kampanja voi puuttua (mainos ilman kampanjaa) -> raportissa
 "(ei kampanjaa)". CTR = klikit / näytöt * 100.
 Frontendissä dashboard.html (js/dashboard.js) ja reporting.html (js/reporting.js).
 """
@@ -49,6 +50,8 @@ NO_CAMPAIGN = "(ei kampanjaa)"
 # Arvo = (GROUP BY -osa, SELECT-osa). Ryhmittelyssä on mukana id, jotta samannimiset
 # kampanjat/mainokset eivät yhdisty yhdeksi riviksi.
 GROUPINGS = {
+    "advertiser": ("a.id, a.name",
+                   "a.name AS advertiser"),
     "campaign":  ("c.id, c.name, a.name",
                   f"COALESCE(c.name, '{NO_CAMPAIGN}') AS campaign, a.name AS advertiser"),
     "creative":  ("cr.id, cr.name, a.name, c.name",
@@ -63,7 +66,7 @@ GROUPINGS = {
 # summataan valitun ryhmittelyn mukaan. {select}, {group} ja {order} täytetään
 # GROUPINGS-taulukosta (ks. _report); käyttäjän arvot (päivät, kampanja) kulkevat
 # %(nimi)s-parametreina. Aikaväli on molemmista päistä mukaan luettu (BETWEEN).
-# campaign_id on valinnainen suodatin (NULL = kaikki kampanjat).
+# advertiser_id ja campaign_id ovat valinnaisia suodattimia (NULL = kaikki).
 REPORT_SQL = """
 SELECT {select},
        sum(s.impressions) AS impressions,
@@ -75,15 +78,16 @@ LEFT JOIN campaigns c ON c.id  = s.campaign_id       -- kampanja on valinnainen
 JOIN creatives cr     ON cr.id = s.creative_id
 JOIN placements p     ON p.id  = s.placement_id
 WHERE s.day BETWEEN %(start)s AND %(end)s
+  AND (%(advertiser_id)s::int IS NULL OR s.advertiser_id = %(advertiser_id)s)
   AND (%(campaign_id)s::int IS NULL OR s.campaign_id = %(campaign_id)s)
 GROUP BY {group}
 ORDER BY {order}
 """
 
-GroupBy = Literal["campaign", "creative", "placement", "day"]
+GroupBy = Literal["advertiser", "campaign", "creative", "placement", "day"]
 
 
-def _report(conn, group_by, start, end, campaign_id):
+def _report(conn, group_by, start, end, campaign_id, advertiser_id=None):
     """Yhteinen toteutus JSON- ja CSV-raportille.
 
     Oletusaikaväli: 30 päivää tähän päivään asti (alku = loppu - 29 pv, molemmat mukana).
@@ -95,7 +99,8 @@ def _report(conn, group_by, start, end, campaign_id):
     order = "s.day" if group_by == "day" else "impressions DESC"
     query = REPORT_SQL.format(select=select, group=group, order=order)
     return conn.execute(
-        query, {"start": start, "end": end, "campaign_id": campaign_id}
+        query, {"start": start, "end": end, "campaign_id": campaign_id,
+                "advertiser_id": advertiser_id}
     ).fetchall()
 
 
@@ -115,16 +120,17 @@ def report(
     start: date | None = None,
     end: date | None = None,
     campaign_id: int | None = None,
+    advertiser_id: int | None = None,
     conn=Depends(get_conn),
 ):
     """Oletuksena viimeiset 30 päivää kampanjoittain.
 
-    GET /api/stats/report?group_by=campaign|creative|placement|day&start=YYYY-MM-DD
-    &end=YYYY-MM-DD&campaign_id=N (kaikki valinnaisia).
+    GET /api/stats/report?group_by=advertiser|campaign|creative|placement|day
+    &start=YYYY-MM-DD&end=YYYY-MM-DD&advertiser_id=N&campaign_id=N (kaikki valinnaisia).
     Palauttaa listan rivejä: ryhmän nimikentät + impressions, clicks, ctr_percent.
     Virheet: 422 tuntematon group_by tai virheellinen päivämäärä.
     """
-    return _report(conn, group_by, start, end, campaign_id)
+    return _report(conn, group_by, start, end, campaign_id, advertiser_id)
 
 
 @router.get("/report.csv")
@@ -133,6 +139,7 @@ def report_csv(
     start: date | None = None,
     end: date | None = None,
     campaign_id: int | None = None,
+    advertiser_id: int | None = None,
     conn=Depends(get_conn),
 ):
     """GET /api/stats/report.csv – sama raportti ladattavana CSV-tiedostona.
@@ -141,7 +148,7 @@ def report_csv(
     Excel olettaa sen (pilkku on desimaalierotin). Content-Disposition: attachment saa
     selaimen tallentamaan tiedoston näyttämisen sijaan. Ilman rivejä tiedostossa on vain BOM.
     """
-    rows = _report(conn, group_by, start, end, campaign_id)
+    rows = _report(conn, group_by, start, end, campaign_id, advertiser_id)
     # CSV kirjoitetaan muistissa olevaan tekstipuskuriin ja lähetetään sieltä.
     buf = io.StringIO()
     buf.write("﻿")  # BOM, jotta Excel tunnistaa UTF-8:n (ä, ö)

@@ -32,11 +32,16 @@
    jolloin kampanjasuodatin on valmiiksi päällä. */
 (() => {
   const grid = document.getElementById('creatives-grid');
+  // Sivutus 20 mainosta/sivu (UI.pager). Suodattimen muutos palaa sivulle 1.
+  const pager = UI.pager(document.getElementById('creatives-pager'), () => render());
   const countEl = document.getElementById('creatives-count');
   const filterBtn = document.getElementById('creatives-filter');
   let creatives = [];
   let advertisers = [];
   let campaigns = [];
+  // Ympäristöt (kanava web/email) esikatselua varten: uutiskirjeessä kuva näytetään eri tavalla
+  let environments = [];
+  const envChannel = (name) => (environments.find((e) => e.name === name) || {}).channel || 'web';
   let placements = [];
 
   // Mainosten tilat sivun omilla teksteillä (wireframe: "Tauolla").
@@ -110,6 +115,7 @@
     else if (action === 'clear') Object.assign(filters, { status: '', campaign: '' });
     else return; // Peruuta, × tai Esc: suodattimet ennallaan
     updateFilterButton();
+    pager.reset();
     loadCreatives();
   };
 
@@ -204,7 +210,7 @@
       placeholder: 'https://www.saashop.fi/',
       tooltip: 'Sivu, jolle mainoksen klikkaus vie. UTM-parametrit lisätään klikatessa automaattisesti.' },
     // Vaihtoehdoiksi kaikki mainospaikat; updatePlacementPicker poistaa käytöstä sopimattomat.
-    { name: 'placement_ids', label: 'Mainospaikat *', type: 'checkboxes',
+    { name: 'placement_ids', label: 'Mainospaikat', type: 'checkboxes', required: true,
       tooltip: 'Valitse vähintään yksi. Jokaisesta paikasta tulee sijoitus. Kuva skaalataan '
         + 'näytettäessä mainospaikan kokoon.',
       options: placements.map((p) => ({ value: p.id, label: `${p.name} (${p.width} × ${p.height})` })) },
@@ -270,6 +276,59 @@
    * Palauttaa 'ok' (Hyväksy), 'discard' (Hylkää) tai 'back' (Palaa takaisin muokkaamaan,
    * myös × ja Esc).
    */
+  /* ---------- Esikatselu mainospaikoissa ----------
+     Mainos näytetään jokaisen valitun mainospaikan kokoisessa kehyksessä täsmälleen niin
+     kuin se oikeasti näkyy (sama sääntö kuin mainostagissa louhi-ads.js):
+     - verkkosivu: kuva skaalataan kokonaan paikkaan mittasuhteet säilyttäen
+       (object-fit: contain). Jos mittasuhteet eroavat, reunoille jää tyhjää tilaa,
+       joka näkyy esikatselussa ruudukkotaustana.
+     - uutiskirje (ympäristön kanava 'email'): kuva näytetään paikan levyisenä ja
+       korkeus määräytyy kuvan mittasuhteesta (sähköpostissa ei voi rajata tai sovittaa).
+     Leveä paikka (esim. 1200 px) pienennetään ikkunaan sopivaksi samassa mittasuhteessa. */
+
+  /** Kuinka paljon kuva täyttää paikasta (contain): { w, h } näkyvä koko pikseleinä. */
+  const fittedSize = (iw, ih, pw, ph) => {
+    const scale = Math.min(pw / iw, ph / ih);
+    return { w: Math.round(iw * scale), h: Math.round(ih * scale) };
+  };
+
+  /** Yhden mainospaikan esikatselukehys. */
+  const slotPreview = (img, p) => {
+    const isEmail = envChannel(p.environment) === 'email';
+    const known = img.width && img.height;
+    let note = '';
+    if (isEmail) {
+      const h = known ? Math.round((p.width * img.height) / img.width) : null;
+      note = `Uutiskirje: kuva näytetään ${p.width} px levyisenä${h ? `, korkeus ${h} px` : ''}.`;
+    } else if (known) {
+      const fit = fittedSize(img.width, img.height, p.width, p.height);
+      const gap = fit.w < p.width - 1 || fit.h < p.height - 1;
+      note = `Kuva ${img.width} × ${img.height} px näkyy paikassa kokoisena ${fit.w} × ${fit.h} px.`
+        + (gap ? ` Mittasuhteet eroavat, joten ${fit.w < p.width - 1 ? 'sivuille' : 'ylä- ja alareunaan'} jää tyhjää tilaa.` : '');
+    }
+    const frame = isEmail
+      ? `<div class="slot-frame is-email" style="width:${p.width}px">
+           <img src="${UI.esc(img.url)}" alt="${UI.esc(img.alt || '')}" style="width:100%;height:auto;display:block">
+         </div>`
+      : `<div class="slot-frame" style="width:${p.width}px;aspect-ratio:${p.width} / ${p.height}">
+           <img src="${UI.esc(img.url)}" alt="${UI.esc(img.alt || '')}">
+         </div>`;
+    return `
+      <figure class="slot-preview">
+        <figcaption><strong>${UI.esc(p.name)}</strong> · ${p.width} × ${p.height} px</figcaption>
+        ${frame}
+        ${note ? `<p class="slot-note">${note}</p>` : ''}
+      </figure>`;
+  };
+
+  /** Esikatselu kaikissa annetuissa mainospaikoissa (tai pelkkä kuva, jos paikkoja ei ole). */
+  const slotPreviews = (img, chosen) => (chosen.length
+    ? `<p class="slot-intro">Näin mainos näkyy ${chosen.length === 1 ? 'valitussa mainospaikassa'
+        : `valituissa mainospaikoissa (${chosen.length}) – vieritä nähdäksesi kaikki`}.
+        Katkoviiva on mainospaikan reuna, ruudukko tyhjää tilaa.</p>
+       <div class="slot-previews">${chosen.map((p) => slotPreview(img, p)).join('')}</div>`
+    : `<div class="preview-stage"><img src="${UI.esc(img.url)}" alt="${UI.esc(img.alt || '')}"></div>`);
+
   const previewBeforeSave = async (data) => {
     const chosen = placements.filter((p) => data.placement_ids.includes(p.id));
     const campaign = campaigns.find((c) => c.id === data.campaign_id);
@@ -277,9 +336,7 @@
       title: 'Esikatselu',
       wide: true,
       html: `
-        <div class="preview-stage">
-          <img src="${UI.esc(data.image_url)}" alt="${UI.esc(data.alt_text)}">
-        </div>
+        ${slotPreviews({ url: data.image_url, alt: data.alt_text, width: data.width, height: data.height }, chosen)}
         <div class="preview-meta">
           <strong>${UI.esc(data.name)}</strong>
           ${data.width && data.height ? ` · ${data.width} × ${data.height} px` : ''}
@@ -315,6 +372,11 @@
       values,
       submitLabel: 'Esikatsele',
       busyLabel: 'Esikatselu…',
+      // Päivämääräpari: näkyvyys ei voi päättyä ennen kuin se alkaa
+      validate: (data) => ({
+        end_date: data.start_date && data.end_date && data.end_date < data.start_date
+          ? 'Päättymispäivä ei voi olla ennen alkamispäivää.' : '',
+      }),
       onRender: attachFormLogic,
       onSubmit: async (data) => {
         // Mainospaikka on pakollinen. Heitetty virhe näytetään lomakkeella (UI.openForm),
@@ -350,15 +412,13 @@
 
   /** Kortin Esikatselu: pelkkä mainoskuva (linkkinä kohdesivulle) isona. */
   const openPreview = (c) => {
+    // Mainoksen paikat täysinä tietoina (koko ja ympäristö) mainospaikkalistasta
+    const chosen = c.placements.map((x) => placements.find((p) => p.id === x.id) || x).filter((p) => p.width);
     UI.openInfo(c.name, `
-      <div class="preview-stage">
-        <a href="${UI.esc(c.target_url)}" target="_blank" rel="noopener">
-          <img src="${UI.esc(c.image_url)}" alt="${UI.esc(c.alt_text)}">
-        </a>
-      </div>
-      <div class="preview-meta">${c.width && c.height ? `${c.width} × ${c.height} px · ` : ''}${
-        c.placements.length ? `Mainospaikat: ${c.placements.map((p) => UI.esc(p.name)).join(', ')}`
-          : 'Ei mainospaikkoja'}</div>`);
+      ${slotPreviews({ url: c.image_url, alt: c.alt_text, width: c.width, height: c.height }, chosen)}
+      <div class="preview-meta">${c.width && c.height ? `Kuva ${c.width} × ${c.height} px · ` : ''}Target URL:
+        <a href="${UI.esc(c.target_url)}" target="_blank" rel="noopener">${UI.esc(c.target_url)}</a>${
+        c.placements.length ? '' : '<br>Ei mainospaikkoja'}</div>`);
   };
 
   /* ---------- Listaus ---------- */
@@ -379,9 +439,10 @@
           <span>${isFiltered() ? 'Ei suodattimia vastaavia mainoksia.' : 'Ei mainoksia.'}
             Lisää mainos yläkulman painikkeesta.</span>
         </div>`;
+      pager.slice([]);
       return;
     }
-    grid.innerHTML = shown.map((c) => `
+    grid.innerHTML = pager.slice(shown).map((c) => `
       <div class="creative-card">
         <div class="creative-thumb">${thumb(c)}</div>
         <div class="creative-body">
@@ -421,8 +482,9 @@
 
   /** Hakee mainostajat, kampanjat ja mainospaikat rinnakkain (lomake ja suodatin tarvitsevat ne). */
   const loadLookups = async () => {
-    [advertisers, campaigns, placements] = await Promise.all([
-      Api.get('/api/advertisers'), Api.get('/api/campaigns'), Api.get('/api/placements')]);
+    [advertisers, campaigns, placements, environments] = await Promise.all([
+      Api.get('/api/advertisers'), Api.get('/api/campaigns'), Api.get('/api/placements'),
+      Api.get('/api/environments')]);
   };
 
   // Event delegation: kortit piirretään uudelleen joka latauksessa, joten kuunnellaan ruudukkoa.
