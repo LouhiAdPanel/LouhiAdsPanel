@@ -3,7 +3,8 @@
 
    Käyttäjä voi:
    - selata mainospaikkoja, avata paikan upotuskoodin ja nähdä mainosten näkymis-
-     todennäköisyydet (Näkyvyys) (kaikki käyttäjät)
+     todennäköisyydet (Näkyvyys). Upotuskoodi näkyy kaikille, Näkyvyys VAIN ADMINILLE
+     (päätös P9: editorilta piilotetaan painoarvot ja todennäköisyydet)
    - luoda, muokata ja poistaa mainospaikkoja (VAIN ADMIN; painikkeissa .admin-only,
      palvelin tarkistaa oikeuden require_admin-riippuvuudella). Poisto kysyy vahvistuksen.
 
@@ -178,7 +179,7 @@
         <td class="cell-muted">${p.width} × ${p.height}</td>
         <td>${UI.pill(p.status)}</td>
         <td class="cell-actions">
-          <button class="btn btn-small" data-visibility="${p.id}">Näkyvyys</button>
+          <button class="btn btn-small admin-only" data-visibility="${p.id}">Näkyvyys</button>
           <button class="btn btn-small admin-only" data-edit="${p.id}">Muokkaa</button>
           <button class="btn btn-small btn-small-danger admin-only" data-delete="${p.id}">Poista</button>
         </td>

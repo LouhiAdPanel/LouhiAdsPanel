@@ -228,7 +228,7 @@
       help: 'Oletus 50. Suurempi arvo = useammin näkyvissä. 0 = ei näytetä.',
       tooltip: 'Kaikki paikan mainokset näkyvät vuorotellen. Mainoksen osuus näytöistä = sen painoarvo '
         + 'jaettuna paikan kaikkien mainosten painoarvojen summalla. Esim. 50 ja 10: osuudet 83 % ja 17 %. '
-        + 'Todennäköisyydet näkyvät Mainospaikat-sivun Näkyvyys-näkymässä.' },
+        + 'Admin näkee todennäköisyydet Mainospaikat-sivun Näkyvyys-näkymässä.' },
     { name: 'start_date', label: 'Näkyy alkaen', type: 'date', help: 'Tyhjä = heti.' },
     { name: 'end_date', label: 'Näkyy asti', type: 'date', help: 'Tyhjä = toistaiseksi.',
       tooltip: 'Kun päivä ohittuu, mainos lakkaa näkymästä ja sen tilaksi muuttuu Ei aktiivinen. '

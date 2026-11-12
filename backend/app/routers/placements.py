@@ -10,11 +10,11 @@ Endpointit (polun /api/placements alla):
   GET    /api/placements/{id}     -> yksi mainospaikka
   POST   /api/placements          -> uusi mainospaikka         (vain admin)
   PUT    /api/placements/{id}     -> päivitys (code ei muutu)  (vain admin)
-  GET    /api/placements/{id}/visibility -> mainosten näkymistodennäköisyydet (kaikki)
+  GET    /api/placements/{id}/visibility -> mainosten näkymistodennäköisyydet (vain admin)
   DELETE /api/placements/{id}     -> poisto                    (vain admin)
 
 Oikeudet: lukeminen kaikille kirjautuneille (kampanjalomake tarvitsee paikkalistan),
-kirjoittaminen vain adminille.
+kirjoittaminen ja Näkyvyys-tiedot (painoarvot, todennäköisyydet) vain adminille.
 """
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -82,11 +82,12 @@ def get_placement(placement_id: int, conn=Depends(get_conn)):
     return row
 
 
-@router.get("/{placement_id}/visibility")
+@router.get("/{placement_id}/visibility", dependencies=[Depends(require_admin)])
 def placement_visibility(placement_id: int, conn=Depends(get_conn)):
     """GET /api/placements/{placement_id}/visibility – mainosten näkymistodennäköisyydet.
 
-    Mainospaikat-sivun Näkyvyys-näkymä (kaikki kirjautuneet). Käyttää samaa ehdokashakua
+    Mainospaikat-sivun Näkyvyys-näkymä, vain admin (päätös P9: editor näkee mainospaikat ja
+    upotuskoodin, mutta ei painoarvoja ja todennäköisyyksiä; editorille 403). Käyttää samaa ehdokashakua
     (ELIGIBLE_SQL) ja samaa laskentaa (serving.py) kuin oikea mainosjakelu, joten luvut
     vastaavat sitä, miten mainokset tällä hetkellä arvotaan: osuus = mainoksen painoarvo /
     paikan kaikkien painoarvojen summa.

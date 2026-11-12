@@ -218,8 +218,8 @@ Virheet palautetaan suomeksi: 401 (ei kirjautunut), 403 (ei oikeuksia), 404 (ei 
   Näyttö kirjataan kuvan avauksesta, klikki linkistä. `r` = vastaanottajan tunniste, jonka avulla
   kuva ja linkki arpovat saman mainoksen. Ilman mainosta palautetaan läpinäkyvä 1 px korkea kuva.
 
-Samat todennäköisyydet näkyvät Mainospaikat-sivun Näkyvyys-näkymässä
-(`GET /api/placements/{id}/visibility`).
+Samat todennäköisyydet näkyvät adminille Mainospaikat-sivun Näkyvyys-näkymässä
+(`GET /api/placements/{id}/visibility`, vain admin; editorilla ei ole Näkyvyys-painiketta).
 
 ## Testaus selaimessa
 
