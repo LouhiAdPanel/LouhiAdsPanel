@@ -838,7 +838,8 @@ const UI = (() => {
        const pager = UI.pager(document.getElementById('x-pager'), () => render());
        const rows = pager.slice(filteredList);   // tämän sivun rivit; piirtää myös navigaation
        pager.reset();                            // suodatuksen muuttuessa takaisin sivulle 1
-     Navigaatio: < Edellinen  1 … 4 5 6 … 12  Seuraava >. Yhden sivun listassa se on piilossa.
+     Navigaatio: < Edellinen  1 … 4 5 6 … 12  Seuraava >, keskitettynä sekä listan ylä- että
+     alapuolella (päätös P8). Yhden sivun listassa se on piilossa.
      Jos sivu jää tyhjäksi (esim. viimeisen sivun viimeinen rivi poistettiin), siirrytään
      viimeiselle sivulle, jolla on rivejä. */
   const PAGE_SIZE = 20;
@@ -857,14 +858,20 @@ const UI = (() => {
 
   const pager = (container, onChange, pageSize = PAGE_SIZE) => {
     let page = 1;
-    const draw = (total) => {
-      const pages = Math.max(1, Math.ceil(total / pageSize));
-      if (pages <= 1) { container.innerHTML = ''; container.hidden = true; return; }
-      container.hidden = false;
+    // Sivutus näkyy sekä listan ylä- että alapuolella (päätös P8). Annettu säiliö on listan
+    // alla; yläpuolen kopio luodaan automaattisesti listan (taulukko tai korttiruudukko)
+    // eteen, joten sivujen HTML:ään riittää yksi säiliö.
+    const list = container.previousElementSibling;
+    const top = document.createElement('div');
+    top.className = 'pager pager-top';
+    top.hidden = true;
+    if (list) list.before(top);
+    const containers = list ? [top, container] : [container];
+
+    const html = (total, pages) => {
       const first = (page - 1) * pageSize + 1;
       const last = Math.min(page * pageSize, total);
-      container.innerHTML = `
-        <span class="pager-info">${first}–${last} / ${total}</span>
+      return `
         <nav class="pager-pages" aria-label="Sivutus">
           <button type="button" class="pager-btn pager-prev" data-page="${page - 1}" ${page === 1 ? 'disabled' : ''}>‹ Edellinen</button>
           ${pageNumbers(page, pages).map((n) => (n === '…'
@@ -872,16 +879,26 @@ const UI = (() => {
             : `<button type="button" class="pager-btn${n === page ? ' is-current' : ''}" data-page="${n}"
                  ${n === page ? 'aria-current="page"' : ''}>${n}</button>`)).join('')}
           <button type="button" class="pager-btn pager-next" data-page="${page + 1}" ${page === pages ? 'disabled' : ''}>Seuraava ›</button>
-        </nav>`;
+        </nav>
+        <span class="pager-info">${first}–${last} / ${total}</span>`;
     };
-    container.classList.add('pager');
-    container.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-page]');
-      if (!btn || btn.disabled) return;
-      page = Number(btn.dataset.page);
-      onChange();
-      // Lista alkaa sivun yläosasta: vieritetään listan alkuun, ettei jäädä sivun pohjalle
-      container.closest('.section-card')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    const draw = (total) => {
+      const pages = Math.max(1, Math.ceil(total / pageSize));
+      containers.forEach((c) => {
+        c.hidden = pages <= 1;
+        c.innerHTML = pages <= 1 ? '' : html(total, pages);
+      });
+    };
+    containers.forEach((c) => {
+      c.classList.add('pager');
+      c.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-page]');
+        if (!btn || btn.disabled) return;
+        page = Number(btn.dataset.page);
+        onChange();
+        // Alalaidan sivutuksesta vieritetään listan alkuun, ettei jäädä sivun pohjalle
+        if (c === container) c.closest('.section-card')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      });
     });
     return {
       /** Palauttaa nykyisen sivun rivit ja piirtää navigaation. */

@@ -1261,17 +1261,19 @@ body:not(.role-admin) .admin-only { display: none !important; }
    Edellinen/Seuraava on himmennetty (disabled).
    ============================================================ */
 .pager {
+  /* Keskitetty: sivunumerot ja niiden alla "1–20 / 57" (päätös P8) */
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px 16px;
+  gap: 6px;
   padding: 14px 20px;
   border-top: 1px solid var(--stone-200);
 }
+/* Listan yläpuolinen sivutus: viiva alla, ei yllä */
+.pager.pager-top { border-top: none; border-bottom: 1px solid var(--stone-200); }
 .pager[hidden] { display: none; }
 .pager-info { font-size: 13px; color: var(--ink-600); }
-.pager-pages { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.pager-pages { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; }
 .pager-btn {
   min-width: 36px;
   height: 36px;
@@ -1290,6 +1292,7 @@ body:not(.role-admin) .admin-only { display: none !important; }
 .pager-gap { padding: 0 4px; color: var(--stone-400); }
 /* Mainokset-sivun korttiruudukon alla sama sivutus ilman yläviivaa */
 .creative-grid + .pager { border-top: none; padding-top: 4px; }
+.pager-top:has(+ .creative-grid) { border-bottom: none; padding-bottom: 4px; }
 
 /* Raportoinnin työkalurivi (päätös P6): rivillä 1 valitun ajanjakson otsikko ja Vie Excel,
    rivillä 2 suodattimet: ajanjakson pikavalinta, sen oikealla aloitus- ja loppupäivä,
