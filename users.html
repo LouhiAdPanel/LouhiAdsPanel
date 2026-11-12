@@ -6,7 +6,7 @@
 <title>Käyttäjät · Louhi Ads</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=28">
+<link rel="stylesheet" href="css/style.css?v=29">
 </head>
 <body>
 <!-- Yläpalkki koko sivun levyisenä: logo vasemmalla, käyttäjä ja tilitoiminnot oikealla (auth.js) -->
@@ -109,10 +109,14 @@
     </div>
     <nav class="app-footer-col" aria-label="Pikalinkit">
       <h4>Pikalinkit</h4>
+      <!-- Sama järjestys kuin päänavigaatiossa; admin-only = vain adminille (päätös P4) -->
+      <a href="advertisers.html">Mainostajat</a>
       <a href="campaigns.html">Kampanjat</a>
       <a href="creatives.html">Mainokset</a>
       <a href="placements.html">Mainospaikat</a>
+      <a href="environments.html" class="admin-only">Ympäristöt</a>
       <a href="reporting.html">Raportointi</a>
+      <a href="users.html" class="admin-only">Käyttäjät</a>
     </nav>
     <div class="app-footer-col">
       <h4>Testaus</h4>
@@ -123,10 +127,10 @@
   </div>
   <div class="app-footer-bottom">© 2026 Louhi Ads · <span class="accent">Kouluprojekti</span></div>
 </footer>
-  <script src="js/api.js?v=28"></script>
-  <script src="js/password-toggle.js?v=28"></script>
-  <script src="js/ui.js?v=28"></script>
-  <script src="js/auth.js?v=28"></script>
-  <script src="js/users.js?v=28"></script>
+  <script src="js/api.js?v=29"></script>
+  <script src="js/password-toggle.js?v=29"></script>
+  <script src="js/ui.js?v=29"></script>
+  <script src="js/auth.js?v=29"></script>
+  <script src="js/users.js?v=29"></script>
 </body>
 </html>
