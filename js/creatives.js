@@ -48,6 +48,14 @@
   const STATUS_LABELS = { active: 'Aktiivinen', paused: 'Tauolla', inactive: 'Ei aktiivinen' };
   const statusPill = (status) => UI.pill(status, { paused: 'Tauolla' });
 
+  /* Vanhentunut mainos (päätös P2): kun Näkyy asti -päivä ohittuu, palvelin muuttaa mainoksen
+     tilaksi Ei aktiivinen (creatives.py, expire_creatives). Kortissa näytetään silloin
+     päättymispäivä, jotta syy näkyy. Uudelleen käyttöön: uusi päivä + tila Aktiivinen. */
+  const pad2 = (n) => String(n).padStart(2, '0');
+  /** Tämä päivä muodossa YYYY-MM-DD (paikallista aikaa), vertailuun date-kentän arvon kanssa. */
+  const todayInput = () => { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+  const isExpired = (c) => c.status === 'inactive' && c.end_time && new Date(c.end_time) <= new Date();
+
   // Painoarvo 0–100 (tietokannassa placings.priority). Mainoksen osuus paikan näytöistä =
   // painoarvo / paikan kaikkien painoarvojen summa. Uuden mainoksen oletus on 50.
   const DEFAULT_WEIGHT = 50;
@@ -222,7 +230,9 @@
         + 'jaettuna paikan kaikkien mainosten painoarvojen summalla. Esim. 50 ja 10: osuudet 83 % ja 17 %. '
         + 'Todennäköisyydet näkyvät Mainospaikat-sivun Näkyvyys-näkymässä.' },
     { name: 'start_date', label: 'Näkyy alkaen', type: 'date', help: 'Tyhjä = heti.' },
-    { name: 'end_date', label: 'Näkyy asti', type: 'date', help: 'Tyhjä = toistaiseksi.' },
+    { name: 'end_date', label: 'Näkyy asti', type: 'date', help: 'Tyhjä = toistaiseksi.',
+      tooltip: 'Kun päivä ohittuu, mainos lakkaa näkymästä ja sen tilaksi muuttuu Ei aktiivinen. '
+        + 'Mainoksen saa takaisin käyttöön valitsemalla uuden päivän ja tilaksi Aktiivinen.' },
     { name: 'alt_text', label: 'ALT-teksti', maxlength: 200, wide: true, emptyValue: '',
       placeholder: 'Lyhyt kuvaus mainoksesta (saavutettavuus)' },
   ];
@@ -372,10 +382,13 @@
       values,
       submitLabel: 'Esikatsele',
       busyLabel: 'Esikatselu…',
-      // Päivämääräpari: näkyvyys ei voi päättyä ennen kuin se alkaa
+      // Päivämääräpari: näkyvyys ei voi päättyä ennen kuin se alkaa. Aktiivisella mainoksella
+      // Näkyy asti -päivä ei voi olla mennyt (mainos vanhenisi heti, päätös P2).
       validate: (data) => ({
         end_date: data.start_date && data.end_date && data.end_date < data.start_date
-          ? 'Päättymispäivä ei voi olla ennen alkamispäivää.' : '',
+          ? 'Päättymispäivä ei voi olla ennen alkamispäivää.'
+          : data.status === 'active' && data.end_date && data.end_date < todayInput()
+            ? 'Päivä on jo ohittunut. Valitse tuleva päivä, jätä kenttä tyhjäksi tai valitse tilaksi Ei aktiivinen.' : '',
       }),
       onRender: attachFormLogic,
       onSubmit: async (data) => {
@@ -456,7 +469,8 @@
             ? `Painoarvo ${c.priority} · ${c.placements.map((p) => UI.esc(p.name)).join(', ')}`
             : '<span class="no-campaign">Ei mainospaikkoja – valitse muokkaamalla</span>'}</p>
           <div class="creative-footer">
-            ${statusPill(c.status)}
+            <span class="creative-status">${statusPill(c.status)}${isExpired(c)
+              ? `<span class="cell-sub">Päättyi ${UI.fmtDate(c.end_time)}</span>` : ''}</span>
             <span>
               <button class="btn btn-small" data-preview="${c.id}">Esikatselu</button>
               <button class="btn btn-small" data-edit="${c.id}">Muokkaa</button>

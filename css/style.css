@@ -1365,3 +1365,34 @@ body:not(.role-admin) .admin-only { display: none !important; }
 .slot-frame.is-email { display: block; }
 .slot-note { margin-top: 6px; font-size: 12.5px; color: var(--ink-600); }
 .slot-intro { margin-bottom: 12px; font-size: 13px; color: var(--ink-600); }
+
+/* Vanhentuneen mainoksen kortissa tilan alla päättymispäivä (päätös P2) */
+.creative-status { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.creative-status .cell-sub { margin-top: 0; }
+
+/* ============================================================
+   20. Salasanan näyttäminen ("silmä"-painike, js/password-toggle.js)
+   Painike salasanakentän oikeassa reunassa kaikissa selaimissa (päätös P3).
+   Edgen oma silmä piilotetaan, ettei kenttään tule kahta painiketta.
+   ============================================================ */
+.password-wrap { position: relative; display: block; }
+.password-wrap .input { width: 100%; padding-right: 44px; }
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-600);
+  cursor: pointer;
+}
+.password-toggle:hover { color: var(--azurite-700); background: var(--stone-50); }
+.password-toggle:focus-visible { outline: 2px solid var(--azurite-500); outline-offset: 1px; }
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear { display: none; }

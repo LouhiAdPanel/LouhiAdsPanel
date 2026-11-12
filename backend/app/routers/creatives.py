@@ -17,12 +17,22 @@ mainospaikat (vähintään yksi) ja yhteiset asetukset, ja jokaisesta paikasta t
 sijoitus. Kampanja EI ole pakollinen: ilman kampanjaa sijoitus näkyy oman aikataulunsa
 mukaan.
 
+Vanhentunut mainos (tiimin päätös P2): kun mainoksen kaikkien voimassa olevien sijoitusten
+Näkyy asti -päivä (end_time) on ohittunut, järjestelmä muuttaa mainoksen tilaksi
+'inactive' (Ei aktiivinen). Muutos tehdään aina, kun mainoksia haetaan (expire_creatives),
+joten erillistä ajastettua taustatyötä ei tarvita. Jakelu (serving.py) lopettaa vanhentuneen
+mainoksen näyttämisen jo päivän ohituttua, joten tila ehtii aina ajan tasalle ennen kuin
+käyttäjä näkee mainoslistan. Mainoksen voi ottaa uudelleen käyttöön vaihtamalla päivän ja
+tilan Aktiiviseksi.
+
 Mainoksen tallennus on kaksivaiheinen: 1) frontend lataa kuvan /upload-reittiin, joka
 tallentaa sen tietokantaan (media.py) ja palauttaa osoitteen /media/<nimi>; 2) lomake
 tallennetaan POST/PUT-kutsulla, jossa image_url on tuo osoite. Kuvana voi olla myös
 ulkoinen URL. Kuvan koko voi poiketa mainospaikan koosta: mainostagi skaalaa kuvan
 mittasuhteet säilyttäen paikan kokoon (louhi-ads.js).
 """
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 
@@ -69,6 +79,28 @@ WHERE (%(id)s::int            IS NULL OR cr.id = %(id)s)
 ORDER BY a.name, cr.name
 """
 
+# Vanhentuneet mainokset -> Ei aktiivinen (päätös P2). Mainos vanhenee, kun sillä on
+# voimassa olevia sijoituksia (status <> 'inactive') ja jokaisen niistä Näkyy asti -aika on
+# ohitettu. Sijoitus ilman päättymisaikaa (toistaiseksi) pitää mainoksen voimassa.
+# Vain aktiiviset mainokset muutetaan: Tauolla-tilaan asetettu mainos säilyttää tilansa.
+EXPIRE_SQL = """
+UPDATE creatives cr SET status = 'inactive'
+WHERE cr.status = 'active'
+  AND EXISTS (SELECT 1 FROM placings pl
+              WHERE pl.creative_id = cr.id AND pl.status <> 'inactive')
+  AND NOT EXISTS (SELECT 1 FROM placings pl
+                  WHERE pl.creative_id = cr.id AND pl.status <> 'inactive'
+                    AND (pl.end_time IS NULL OR pl.end_time > now()))
+RETURNING cr.id
+"""
+
+
+def expire_creatives(conn) -> int:
+    """Merkitsee vanhentuneet mainokset Ei aktiivisiksi. Palauttaa muutettujen määrän.
+    Kutsutaan ennen mainosten hakua (lista ja yksittäinen mainos)."""
+    return len(conn.execute(EXPIRE_SQL).fetchall())
+
+
 # Valitut mainospaikat koon tarkistusta varten. ANY(%s) = id on annetussa listassa.
 SELECTED_PLACEMENTS_SQL = "SELECT id, name, width, height FROM placements WHERE id = ANY(%s) ORDER BY name"
 
@@ -106,6 +138,13 @@ def _prepare(conn, body: CreativeIn) -> tuple[dict, list[int]]:
     - Kuvan kokoa ei rajata: mainostagi skaalaa isomman tai pienemmän kuvan paikan kokoon.
     Nostaa 422:n selkeällä suomenkielisellä viestillä, jos jokin ehto ei täyty.
     """
+    # Aktiivista mainosta ei voi tallentaa jo ohittuneella Näkyy asti -päivällä: se
+    # vanhenisi heti ja muuttuisi Ei aktiiviseksi (päätös P2).
+    if body.status == "active" and body.end_time:
+        end = body.end_time if body.end_time.tzinfo else body.end_time.replace(tzinfo=timezone.utc)
+        if end <= datetime.now(timezone.utc):
+            raise HTTPException(422, "Näkyy asti -päivä on jo ohittunut. Valitse tuleva päivä, "
+                                     "jätä kenttä tyhjäksi tai valitse tilaksi Ei aktiivinen.")
     if not conn.execute("SELECT 1 FROM advertisers WHERE id = %s", [body.advertiser_id]).fetchone():
         raise HTTPException(422, "Valittua mainostajaa ei löytynyt.")
     if body.campaign_id:
@@ -213,7 +252,9 @@ def list_creatives(campaign_id: int | None = None, advertiser_id: int | None = N
     campaign_id = mainokset, joilla on sijoitus kampanjassa; unassigned=true = mainokset
     ilman kampanjaa. Ilman parametreja kaikki mainokset. Palauttaa listan mainoksista
     mainostajan ja kampanjan nimineen sekä sijoitusten yhteenvedon (placements ym.).
+    Vanhentuneet mainokset merkitään ensin Ei aktiivisiksi (expire_creatives).
     """
+    expire_creatives(conn)
     return conn.execute(LIST_SQL, {"id": None, "advertiser_id": advertiser_id,
                                    "campaign_id": campaign_id, "unassigned": unassigned}).fetchall()
 
@@ -221,6 +262,7 @@ def list_creatives(campaign_id: int | None = None, advertiser_id: int | None = N
 @router.get("/{creative_id}")
 def get_creative(creative_id: int, conn=Depends(get_conn)):
     """GET /api/creatives/{creative_id} – yksi mainos. Virheet: 404 ei löydy."""
+    expire_creatives(conn)
     return _get_or_404(conn, creative_id)
 
 
