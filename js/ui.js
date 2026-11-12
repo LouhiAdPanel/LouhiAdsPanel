@@ -115,26 +115,30 @@ const UI = (() => {
   };
 
   /* ---------- Ilmoitukset ---------- */
-  let toastBox;
   /**
    * Näyttää lyhyen ilmoituksen oikeassa reunassa; poistuu itsestään.
    * @param {string} message
    * @param {'success'|'error'} [type]  virheet näkyvät pidempään (6 s vs. 3,5 s)
    */
   const toast = (message, type = 'success') => {
-    // Säiliö luodaan vasta ensimmäisellä kutsulla. role=status + aria-live
+    // Avoin ikkuna (<dialog>) on aina sivun päällimmäinen kerros, ja sen tausta sumentaa
+    // sivun. Siksi ilmoitus lisätään päällimmäisen avoimen ikkunan sisään (näkyy sen päällä),
+    // muuten sivulle (testauksen havainto V2: "Upotuskoodi kopioitu" jäi sumennuksen taakse).
+    const host = [...document.querySelectorAll('dialog[open]')].pop() || document.body;
+    // Säiliö luodaan kerran kutakin isäntää kohden. role=status + aria-live
     // saa ruudunlukijan lukemaan ilmoituksen keskeyttämättä käyttäjää.
-    if (!toastBox) {
-      toastBox = document.createElement('div');
-      toastBox.className = 'toast-container';
-      toastBox.setAttribute('role', 'status');
-      toastBox.setAttribute('aria-live', 'polite');
-      document.body.appendChild(toastBox);
+    let box = host.querySelector(':scope > .toast-container');
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'toast-container';
+      box.setAttribute('role', 'status');
+      box.setAttribute('aria-live', 'polite');
+      host.appendChild(box);
     }
     const el = document.createElement('div');
     el.className = `toast toast-${type}`;
     el.textContent = message; // textContent eikä innerHTML -> ei XSS-riskiä
-    toastBox.appendChild(el);
+    box.appendChild(el);
     setTimeout(() => el.remove(), type === 'error' ? 6000 : 3500);
   };
 
@@ -418,7 +422,11 @@ const UI = (() => {
       dialog.close(); dialog.remove(); resolve(value);
     };
     dialog.querySelector('.modal-close').addEventListener('click', () => done(null));
-    dialog.addEventListener('cancel', (e) => { e.preventDefault(); done(null); });
+    dialog.addEventListener('cancel', (e) => {
+      // Tiedostoikkunan peruutus lähettää kuvakentästä oman cancel-tapahtumansa, joka kuplii
+      // ikkunaan asti: se ei ole Esc eikä saa sulkea lomaketta (testauksen havainto V1).
+      if (e.target !== dialog) return;
+      e.preventDefault(); done(null); });
     dialog.querySelectorAll('[data-i]').forEach((btn) =>
       btn.addEventListener('click', () => done(buttons[Number(btn.dataset.i)].value)));
     dialog.showModal();
@@ -452,7 +460,11 @@ const UI = (() => {
     document.body.appendChild(dialog);
     const done = () => { dialog.close(); dialog.remove(); resolve(); };
     dialog.querySelector('.modal-close').addEventListener('click', done);
-    dialog.addEventListener('cancel', (e) => { e.preventDefault(); done(); });
+    dialog.addEventListener('cancel', (e) => {
+      // Tiedostoikkunan peruutus lähettää kuvakentästä oman cancel-tapahtumansa, joka kuplii
+      // ikkunaan asti: se ei ole Esc eikä saa sulkea lomaketta (testauksen havainto V1).
+      if (e.target !== dialog) return;
+      e.preventDefault(); done(); });
     dialog.addEventListener('click', (e) => { if (e.target === dialog) done(); });
     dialog.showModal();
     dialog.querySelector('.modal-close').focus();
@@ -650,7 +662,11 @@ const UI = (() => {
     dialog.querySelector('.modal-close').addEventListener('click', close);
     form.querySelector('[data-action="cancel"]').addEventListener('click', close);
     // Esc: oletuksena dialog vain piilotettaisiin; close() myös poistaa sen DOMista
-    dialog.addEventListener('cancel', (e) => { e.preventDefault(); close(); }); // Esc
+    dialog.addEventListener('cancel', (e) => {
+      // Tiedostoikkunan peruutus lähettää kuvakentästä oman cancel-tapahtumansa, joka kuplii
+      // ikkunaan asti: se ei ole Esc eikä saa sulkea lomaketta (testauksen havainto V1).
+      if (e.target !== dialog) return;
+      e.preventDefault(); close(); }); // Esc
 
     form.addEventListener('submit', async (e) => {
       // method="dialog" sulkisi ikkunan heti; estetään, jotta ikkuna pysyy auki
@@ -741,7 +757,11 @@ const UI = (() => {
     document.body.appendChild(dialog);
     const close = () => { dialog.close(); dialog.remove(); };
     dialog.querySelector('.modal-close').addEventListener('click', close);
-    dialog.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+    dialog.addEventListener('cancel', (e) => {
+      // Tiedostoikkunan peruutus lähettää kuvakentästä oman cancel-tapahtumansa, joka kuplii
+      // ikkunaan asti: se ei ole Esc eikä saa sulkea lomaketta (testauksen havainto V1).
+      if (e.target !== dialog) return;
+      e.preventDefault(); close(); });
     // Taustan (::backdrop) klikkaus kohdistuu itse dialog-elementtiin
     dialog.addEventListener('click', (e) => { if (e.target === dialog) close(); });
     dialog.showModal();

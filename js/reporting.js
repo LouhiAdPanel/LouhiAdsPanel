@@ -4,12 +4,12 @@
    - rajata raportin mainostajaan ja/tai kampanjaan, valita ajanjakson ja ryhmittelyn
      (mainostaja/kampanja/mainos/paikka/päivä). Mainostajan valinta rajaa kampanjalistan
      kyseisen mainostajan kampanjoihin.
-   - nähdä yhteenvedon (näytöt, klikit, CTR) ja taulukon sekä ladata saman raportin CSV:nä
+   - nähdä yhteenvedon (näytöt, klikit, CTR) ja taulukon sekä ladata saman raportin Excel- (.xlsx) tai CSV-tiedostona
    Tällä sivulla ei ole vain adminille rajattuja toimintoja.
 
    API:
    - GET /api/stats/report?start=&end=&group_by=&advertiser_id=&campaign_id=  rivit (JSON)
-   - GET /api/stats/report.csv?...                                  sama CSV-tiedostona
+   - GET /api/stats/report.xlsx?..., /report.csv?...                sama Excel- / CSV-tiedostona
    - GET /api/advertisers, /api/campaigns                           valintalistat
    Data tulee tietokantanäkymästä v_daily_stats (päivät Suomen aikavyöhykkeellä). */
 (() => {
@@ -22,6 +22,7 @@
   const thead = document.getElementById('report-head');
   const tbody = document.getElementById('report-body');
   const csvBtn = document.getElementById('report-csv');
+  const xlsxBtn = document.getElementById('report-xlsx');
 
   // Ryhmittelyn sarakkeet: [kenttä, otsikko]
   // Avain = group_by-arvo. Taulukon otsikot vaihtuvat ryhmittelyn mukaan; mittarit
@@ -132,8 +133,13 @@
     fillCampaigns();
   };
 
-  // CSV-vienti tavallisena siirtymänä: palvelin lähettää tiedoston latauksena
+  // Vienti tavallisena siirtymänä: palvelin lähettää tiedoston latauksena
   // (Content-Disposition), joten sivu ei vaihdu. Kirjautumiseväste kulkee mukana automaattisesti.
+  // Excel (.xlsx) on ensisijainen: arvot omissa soluissaan ja päivät muotoiltuina Excelin
+  // kieliasetuksista riippumatta. CSV jää muita ohjelmia varten.
+  xlsxBtn.addEventListener('click', () => {
+    window.location.href = '/api/stats/report.xlsx' + Api.query(params());
+  });
   csvBtn.addEventListener('click', () => {
     window.location.href = '/api/stats/report.csv' + Api.query(params());
   });

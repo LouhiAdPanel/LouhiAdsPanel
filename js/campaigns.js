@@ -114,6 +114,32 @@
   });
 
   /**
+   * Aktiivisella kampanjalla on oltava aloitus- ja päättymispäivä (palvelin vaatii saman).
+   * Päiväkenttien otsikoihin tulee pakollisuuden tähti (*) aina, kun tilaksi on valittu
+   * Aktiivinen, ja se poistuu muilla tiloilla (testauksen havainto V4: päivät vaadittiin,
+   * vaikka tähteä ei ollut). Varsinainen tarkistus on lomakkeen validate-säännössä.
+   */
+  const attachDateRequirement = (form) => {
+    const marks = ['start_date', 'end_date'].map((name) => {
+      const label = form.querySelector(`label[for="f-${name}"]`);
+      const mark = document.createElement('span');
+      mark.className = 'required-mark';
+      mark.textContent = ' *';
+      label.firstChild.after(mark);   // heti otsikon tekstin perään, ennen ?-ohjetta
+      return { input: form.elements[name], mark };
+    });
+    const update = () => {
+      const active = form.elements.status.value === 'active';
+      marks.forEach(({ input, mark }) => {
+        mark.hidden = !active;
+        input.setAttribute('aria-required', String(active));
+      });
+    };
+    form.elements.status.addEventListener('change', update);
+    update();
+  };
+
+  /**
    * UI.openForm kutsuu tätä (onRender): täyttää Mainokset-valinnan valitun mainostajan
    * mainoksilla ja päivittää sen, kun mainostaja vaihtuu (eri mainostajan valinnat poistuvat).
    */
@@ -207,7 +233,10 @@
       },
       values,
       submitLabel: isNew ? 'Luo kampanja' : 'Tallenna',
-      onRender: (form) => attachCreativePicker(form, campaign, values.creative_ids),
+      onRender: (form) => {
+        attachCreativePicker(form, campaign, values.creative_ids);
+        attachDateRequirement(form);
+      },
       onSubmit: async (data) => {
         const payload = toPayload(data);
         if (isNew) await Api.post('/api/campaigns', payload);

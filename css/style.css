@@ -489,6 +489,9 @@ img { max-width: 100%; display: block; }
   flex-wrap: wrap;
 }
 
+/* CSV-lataus yhteenvetorivin oikeassa reunassa (Excel-vienti on otsikkorivillä) */
+.report-csv-link { margin-left: auto; align-self: flex-end; font-size: 13px; color: var(--azurite-700); }
+
 .report-summary .metric span {
   display: block;
 }
@@ -934,7 +937,10 @@ body:not(.role-admin) .admin-only { display: none !important; }
   gap: 32px;
   padding: 40px 40px 28px calc(var(--sidebar-width) + 40px);
 }
-.app-footer-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.app-footer-logo { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+/* Footerin logo on linkki etusivulle (kuten yläpalkin logo); ei harmaata linkkiväriä */
+.app-footer a.app-footer-logo, .app-footer a.app-footer-logo:hover { color: #FFFFFF; }
+.app-footer a.app-footer-logo:hover .app-footer-name { color: #F9971C; }
 .app-footer-name { color: #FFFFFF; font-size: 16px; font-weight: 600; }
 .app-footer h4 { color: #FFFFFF; font-size: 14px; font-weight: 600; margin-bottom: 10px; }
 .app-footer-col { display: flex; flex-direction: column; gap: 6px; }
@@ -1287,8 +1293,8 @@ body:not(.role-admin) .admin-only { display: none !important; }
 
 /* Raportoinnin työkalurivi: neljä valintaa + Vie CSV mahtuvat samalle riville
    (pitkät mainostaja- ja kampanjanimet katkaistaan valikossa) */
-#report-advertiser, #report-campaign, #report-period, #report-group { min-width: 0; max-width: 150px; }
-#report-period { max-width: 168px; }
+#report-advertiser, #report-campaign, #report-period, #report-group { min-width: 0; max-width: 140px; }
+#report-period { max-width: 160px; }
 
 /* ============================================================
    18. Lomakkeen tarkistus: pakolliset ja virheelliset kentät

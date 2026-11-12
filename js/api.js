@@ -36,7 +36,9 @@ class ApiError extends Error {
  */
 function formatApiError(data, status) {
   if (!data || !data.detail) {
-    if (status === 0) return 'Palvelimeen ei saatu yhteyttä. Onko backend käynnissä?';
+    // Renderin ilmaispalvelu nukahtaa 15 min käyttämättömyyden jälkeen, ja herääminen kestää
+    // noin minuutin. Viesti kertoo käyttäjälle, mitä tehdä (testauksen havainto V6).
+    if (status === 0) return 'Palvelin ei vastannut. Se voi olla vasta käynnistymässä – odota hetki ja yritä uudelleen.';
     return `Palvelinvirhe (${status}).`;
   }
   if (typeof data.detail === 'string') return data.detail;
@@ -70,12 +72,20 @@ async function request(method, path, body) {
     options.body = JSON.stringify(body);
   }
 
+  // fetch heittää vain, jos palvelimeen ei saada yhteyttä (ei HTTP-virheistä). Tiedon haku
+  // (GET) yritetään uudelleen kahdesti 2 ja 5 sekunnin päästä, jotta lyhyt katko tai
+  // käynnistyvä palvelin ei näy käyttäjälle virheenä. Tallennuksia (POST/PUT/PATCH/DELETE)
+  // ei toisteta automaattisesti, ettei sama muutos mene perille kahdesti.
+  const retryDelays = method === 'GET' ? [2000, 5000] : [];
   let res;
-  try {
-    res = await fetch(API_BASE + path, options);
-  } catch (err) {
-    // fetch heittää vain, jos palvelimeen ei saada yhteyttä (ei HTTP-virheistä)
-    throw new ApiError(formatApiError(null, 0), 0);
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      res = await fetch(API_BASE + path, options);
+      break;
+    } catch (err) {
+      if (attempt >= retryDelays.length) throw new ApiError(formatApiError(null, 0), 0);
+      await new Promise((resolve) => setTimeout(resolve, retryDelays[attempt]));
+    }
   }
 
   if (res.status === 204) return null;
