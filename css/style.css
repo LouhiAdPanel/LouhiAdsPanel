@@ -1291,10 +1291,15 @@ body:not(.role-admin) .admin-only { display: none !important; }
 /* Mainokset-sivun korttiruudukon alla sama sivutus ilman yläviivaa */
 .creative-grid + .pager { border-top: none; padding-top: 4px; }
 
-/* Raportoinnin työkalurivi: neljä valintaa + Vie CSV mahtuvat samalle riville
-   (pitkät mainostaja- ja kampanjanimet katkaistaan valikossa) */
-#report-advertiser, #report-campaign, #report-period, #report-group { min-width: 0; max-width: 140px; }
-#report-period { max-width: 160px; }
+/* Raportoinnin työkalurivi (päätös P6): rivillä 1 valitun ajanjakson otsikko ja Vie Excel,
+   rivillä 2 suodattimet: ajanjakson pikavalinta, sen oikealla aloitus- ja loppupäivä,
+   sitten mainostaja, kampanja ja ryhmittely. */
+.report-toolbar .filters { order: 3; flex: 1 0 100%; }
+.report-toolbar .select { min-width: 0; max-width: 200px; }
+.date-range { display: inline-flex; align-items: center; gap: 6px; }
+.date-range .input { width: 150px; }
+.date-range-sep { color: var(--ink-600); }
+.date-range .input.is-invalid { border-color: var(--brick-600); }
 
 /* ============================================================
    18. Lomakkeen tarkistus: pakolliset ja virheelliset kentät

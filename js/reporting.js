@@ -1,7 +1,8 @@
 /* Raportointi-sivu (reporting.html): näytöt, klikit ja CTR valitulta ajanjaksolta + CSV-vienti.
 
    Käyttäjä (admin ja editor) voi:
-   - rajata raportin mainostajaan ja/tai kampanjaan, valita ajanjakson ja ryhmittelyn
+   - valita ajanjakson (oletus kuluva kuukausi, edellinen kuukausi tai oma aloitus- ja
+     loppupäivä), rajata raportin mainostajaan ja/tai kampanjaan ja valita ryhmittelyn
      (mainostaja/kampanja/mainos/paikka/päivä). Mainostajan valinta rajaa kampanjalistan
      kyseisen mainostajan kampanjoihin.
    - nähdä yhteenvedon (näytöt, klikit, CTR) ja taulukon sekä ladata saman raportin Excel- (.xlsx) tai CSV-tiedostona
@@ -41,25 +42,44 @@
   const pad = (n) => String(n).padStart(2, '0');
   const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-  /**
-   * Valittu ajanjakso -> { start, end } (YYYY-MM-DD)
-   * Molemmat päivät ovat mukana, joten "7 päivää" = tänään + 6 edellistä.
-   * Edellisen kuun viimeinen päivä saadaan päivällä 0 (= edellisen kuun viimeinen).
-   * Oletus (myös '30') on 30 päivää.
-   */
-  const period = () => {
+  /* ---------- Ajanjakso (tiimin päätös P6) ----------
+     Oletuksena kuluva kuukausi: kuun 1. päivästä tähän päivään. Pikavalinnat: Tämä kuukausi,
+     Edellinen kuukausi ja Valitse ajanjakso. Valikon oikealla puolella ovat aloitus- ja
+     loppupäivä, jotka näyttävät aina valitun jakson. Pikavalinta täyttää päivät; kun käyttäjä
+     muuttaa päivää itse, valikoksi vaihtuu "Valitse ajanjakso". Molemmat päivät ovat mukana. */
+  const startInput = document.getElementById('report-start');
+  const endInput = document.getElementById('report-end');
+
+  /** Pikavalinnan päivät { start, end } (YYYY-MM-DD). Edellisen kuun viimeinen päivä =
+      tämän kuun päivä 0. */
+  const presetRange = (value) => {
     const now = new Date();
-    const daysAgo = (n) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - n);
-    switch (periodSel.value) {
-      case '7':          return { start: ymd(daysAgo(6)), end: ymd(now) };
-      case 'this-month': return { start: ymd(new Date(now.getFullYear(), now.getMonth(), 1)), end: ymd(now) };
-      case 'last-month': return {
+    if (value === 'last-month') {
+      return {
         start: ymd(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
         end: ymd(new Date(now.getFullYear(), now.getMonth(), 0)),
       };
-      case '90':         return { start: ymd(daysAgo(89)), end: ymd(now) };
-      default:           return { start: ymd(daysAgo(29)), end: ymd(now) };
     }
+    return { start: ymd(new Date(now.getFullYear(), now.getMonth(), 1)), end: ymd(now) };
+  };
+
+  /** Täyttää päiväkentät pikavalinnan mukaan ("Valitse ajanjakso" jättää ne ennalleen). */
+  const applyPreset = () => {
+    if (periodSel.value === 'custom') return;
+    const r = presetRange(periodSel.value);
+    startInput.value = r.start;
+    endInput.value = r.end;
+  };
+
+  /** Valittu ajanjakso päiväkentistä { start, end }. */
+  const period = () => ({ start: startInput.value, end: endInput.value });
+
+  /** Virheteksti, jos ajanjakso ei kelpaa ('' = kunnossa). */
+  const periodError = () => {
+    const { start, end } = period();
+    if (!start || !end) return 'Valitse ajanjakson aloitus- ja loppupäivä.';
+    if (end < start) return 'Loppupäivä ei voi olla ennen aloituspäivää.';
+    return '';
   };
 
   /** Kyselyparametrit; samat sekä taulukolle että CSV-viennille, jotta ne vastaavat toisiaan. */
@@ -105,6 +125,16 @@
   /** Päivittää ajanjakson otsikon ja hakee raportin. */
   const load = async () => {
     const p = period();
+    const err = periodError();
+    [startInput, endInput].forEach((el) => el.classList.toggle('is-invalid', Boolean(err)));
+    xlsxBtn.disabled = Boolean(err);
+    csvBtn.disabled = Boolean(err);
+    if (err) {
+      periodTitle.textContent = 'Ajanjakso';
+      UI.tableMessage(tbody, 5, err, true);
+      setSummary([]);
+      return;
+    }
     periodTitle.textContent = `Ajanjakso: ${UI.fmtDate(p.start + 'T00:00:00')}–${UI.fmtDate(p.end + 'T00:00:00')}`;
     UI.tableMessage(tbody, 5, 'Ladataan…');
     try {
@@ -144,7 +174,14 @@
     window.location.href = '/api/stats/report.csv' + Api.query(params());
   });
   advertiserSel.addEventListener('change', () => { fillCampaigns(); load(); });
-  [campaignSel, periodSel, groupSel].forEach((el) => el.addEventListener('change', load));
+  [campaignSel, groupSel].forEach((el) => el.addEventListener('change', load));
+  periodSel.addEventListener('change', () => { applyPreset(); load(); });
+  // Päivän muuttaminen itse = oma ajanjakso
+  [startInput, endInput].forEach((el) => el.addEventListener('change', () => {
+    periodSel.value = 'custom';
+    load();
+  }));
+  applyPreset();
 
   loadLookups()
     .catch((err) => UI.toast(err.message, 'error'))
