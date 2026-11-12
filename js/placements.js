@@ -259,12 +259,12 @@
   const deletePlacement = async (p) => {
     const ok = await UI.confirm({
       title: 'Poista mainospaikka',
-      message: `Haluatko varmasti poistaa mainospaikan ${p.name}? Paikan mainossijoitukset ja tilastot poistuvat samalla.`,
+      message: `Haluatko varmasti poistaa mainospaikan "${p.name}"? Paikan mainossijoitukset ja tilastot poistuvat samalla.`,
     });
     if (!ok) return;
     try {
       await Api.del(`/api/placements/${p.id}`);
-      UI.toast('Mainospaikka poistettu.');
+      UI.toast(`Mainospaikka "${p.name}" poistettu.`);
       load();
     } catch (err) {
       UI.toast(err.message, 'error');

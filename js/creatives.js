@@ -409,15 +409,15 @@
         };
         if (isNew) await Api.post('/api/creatives', body);
         else await Api.put(`/api/creatives/${creative.id}`, body);
-        UI.toast(isNew ? 'Mainos lisätty.' : 'Mainos päivitetty.');
+        UI.toast(isNew ? 'Mainos luotu.' : 'Muutokset tallennettu.');
         loadCreatives();
       },
+      // Vahvistus kertoo poistettavan mainoksen nimen (päätös P7)
       deleteLabel: 'Poista mainos',
-      deleteConfirm: 'Haluatko varmasti poistaa mainoksen?',
-      deleteConfirmLabel: 'Kyllä',
+      deleteConfirm: creative ? `Haluatko varmasti poistaa mainoksen "${creative.name}"? Mainoksen näyttö- ja klikkitilastot poistuvat samalla.` : '',
       onDelete: isNew ? null : async () => {
         await Api.del(`/api/creatives/${creative.id}`);
-        UI.toast('Mainos poistettu.');
+        UI.toast(`Mainos "${creative.name}" poistettu.`);
         loadCreatives();
       },
     });

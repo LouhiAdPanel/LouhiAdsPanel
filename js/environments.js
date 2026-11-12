@@ -96,7 +96,7 @@
       onSubmit: async (data) => {
         if (isNew) await Api.post('/api/environments', data);
         else await Api.put(`/api/environments/${env.id}`, data);
-        setTimeout(() => UI.notice({ message: isNew ? 'Ympäristö luotu.' : 'Ympäristön tiedot päivitetty.' }), 0);
+        UI.toast(isNew ? 'Ympäristö luotu.' : 'Muutokset tallennettu.');
         load();
       },
     });
@@ -105,24 +105,20 @@
   /** Poisto vahvistuksen jälkeen. Ympäristöä, jossa on mainospaikkoja, ei voi poistaa. */
   const deleteEnvironment = async (env) => {
     if (env.placement_count) {
-      UI.notice({
-        title: 'Ympäristöä ei voi poistaa',
-        message: `Ympäristössä "${env.name}" on ${env.placement_count} mainospaikkaa. Siirrä mainospaikat toiseen ympäristöön tai poista ne ensin.`,
-        type: 'error',
-      });
+      UI.toast(`Ympäristöä "${env.name}" ei voi poistaa: siinä on ${env.placement_count} mainospaikkaa. Siirrä mainospaikat toiseen ympäristöön tai poista ne ensin.`, 'error');
       return;
     }
     const ok = await UI.confirm({
       title: 'Poista ympäristö',
-      message: `Haluatko varmasti poistaa ympäristön ${env.name}?`,
+      message: `Haluatko varmasti poistaa ympäristön "${env.name}"? Toimintoa ei voi perua.`,
     });
     if (!ok) return;
     try {
       await Api.del(`/api/environments/${env.id}`);
-      UI.notice({ message: 'Ympäristö poistettu.' });
+      UI.toast(`Ympäristö "${env.name}" poistettu.`);
       load();
     } catch (err) {
-      UI.notice({ title: 'Virhe', message: err.message, type: 'error' });
+      UI.toast(err.message, 'error');
     }
   };
 

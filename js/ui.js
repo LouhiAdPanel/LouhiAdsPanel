@@ -120,6 +120,22 @@ const UI = (() => {
    * @param {string} message
    * @param {'success'|'error'} [type]  virheet näkyvät pidempään (6 s vs. 3,5 s)
    */
+  /**
+   * Siirtää suljettavan ikkunan sisällä näkyvät ilmoitukset sivulle, jotta ne eivät katoa
+   * ikkunan mukana (esim. "Mainos luotu." näytetään tallennuksessa juuri ennen kuin
+   * lomakeikkuna sulkeutuu). Kutsutaan jokaisen ikkunan sulkemisessa.
+   */
+  const releaseToasts = (dialog) => {
+    const inner = dialog.querySelector(':scope > .toast-container');
+    if (!inner || !inner.children.length) return;
+    let box = document.body.querySelector(':scope > .toast-container');
+    if (!box) {
+      box = inner.cloneNode(false);
+      document.body.appendChild(box);
+    }
+    [...inner.children].forEach((t) => box.appendChild(t));
+  };
+
   const toast = (message, type = 'success') => {
     // Avoin ikkuna (<dialog>) on aina sivun päällimmäinen kerros, ja sen tausta sumentaa
     // sivun. Siksi ilmoitus lisätään päällimmäisen avoimen ikkunan sisään (näkyy sen päällä),
@@ -419,7 +435,7 @@ const UI = (() => {
     document.body.appendChild(dialog);
     const done = (value) => {
       if (onDone) onDone(value, dialog);
-      dialog.close(); dialog.remove(); resolve(value);
+      releaseToasts(dialog); dialog.close(); dialog.remove(); resolve(value);
     };
     dialog.querySelector('.modal-close').addEventListener('click', () => done(null));
     dialog.addEventListener('cancel', (e) => {
@@ -458,7 +474,7 @@ const UI = (() => {
       </header>
       <div class="modal-body"><p class="notice-message">${esc(message)}</p></div>`;
     document.body.appendChild(dialog);
-    const done = () => { dialog.close(); dialog.remove(); resolve(); };
+    const done = () => { releaseToasts(dialog); dialog.close(); dialog.remove(); resolve(); };
     dialog.querySelector('.modal-close').addEventListener('click', done);
     dialog.addEventListener('cancel', (e) => {
       // Tiedostoikkunan peruutus lähettää kuvakentästä oman cancel-tapahtumansa, joka kuplii
@@ -654,7 +670,7 @@ const UI = (() => {
     const errorBox = dialog.querySelector('.form-error');
     const submitBtn = form.querySelector('button[type="submit"]');
 
-    const close = () => { dialog.close(); dialog.remove(); };
+    const close = () => { releaseToasts(dialog); dialog.close(); dialog.remove(); };
     const showError = (msg) => { errorBox.textContent = msg; errorBox.hidden = false; };
     // Painikkeet pois käytöstä tallennuksen ajaksi -> ei tuplalähetyksiä
     const busy = (on) => form.querySelectorAll('button').forEach((b) => { b.disabled = on; });
@@ -755,7 +771,7 @@ const UI = (() => {
       </header>
       <div class="modal-body">${html}</div>`;
     document.body.appendChild(dialog);
-    const close = () => { dialog.close(); dialog.remove(); };
+    const close = () => { releaseToasts(dialog); dialog.close(); dialog.remove(); };
     dialog.querySelector('.modal-close').addEventListener('click', close);
     dialog.addEventListener('cancel', (e) => {
       // Tiedostoikkunan peruutus lähettää kuvakentästä oman cancel-tapahtumansa, joka kuplii

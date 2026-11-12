@@ -242,8 +242,8 @@
         if (isNew) await Api.post('/api/campaigns', payload);
         else await Api.put(`/api/campaigns/${campaign.id}`, payload);
         load();
-        // Wireframe: onnistumisilmoitus omana ikkunanaan, joka suljetaan ×:llä
-        setTimeout(() => UI.notice({ message: isNew ? 'Kampanja luotu.' : 'Kampanjan tiedot päivitetty.' }), 0);
+        // Onnistumisilmoitus kulmaan kuten muillakin sivuilla (päätös P7)
+        UI.toast(isNew ? 'Kampanja luotu.' : 'Muutokset tallennettu.');
       },
     });
   };
@@ -255,13 +255,13 @@
   const deleteCampaign = async (c) => {
     const ok = await UI.confirm({
       title: 'Poista kampanja',
-      message: `Haluatko varmasti poistaa tämän kampanjan? (${c.name})`,
+      message: `Haluatko varmasti poistaa kampanjan "${c.name}"? Kampanjan mainokset säilyvät, mutta ne irrotetaan kampanjasta.`,
     });
     if (!ok) return;
     try {
       await Api.del(`/api/campaigns/${c.id}`);
       load();
-      UI.notice({ message: 'Kampanja poistettu.' });
+      UI.toast(`Kampanja "${c.name}" poistettu.`);
     } catch (err) {
       UI.toast(err.message, 'error');
     }

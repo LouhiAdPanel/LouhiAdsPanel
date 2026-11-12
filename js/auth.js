@@ -96,16 +96,16 @@ const Auth = (() => {
             new_password: data.new_password,
           });
         } catch (err) {
-          // Väärä nykyinen salasana (400): wireframen virheikkuna, jonka sulkeminen (×)
-          // palaa Vaihda salasana -lomakkeelle (lomake jää auki, return false).
+          // Väärä nykyinen salasana (400): virheilmoitus kulmaan (päätös P7), ja
+          // Vaihda salasana -lomake jää auki korjausta varten (return false).
           if (err.status === 400) {
-            await UI.notice({ title: 'Virhe', message: 'Nykyinen salasana on virheellinen.', type: 'error' });
+            UI.toast('Nykyinen salasana on virheellinen.', 'error');
             return false;
           }
           throw err;
         }
-        // Lomake sulkeutuu, ja wireframen onnistumisikkuna näytetään (× sulkee sen)
-        setTimeout(() => UI.notice({ title: 'Vaihda salasana', message: 'Salasanasi on vaihdettu.' }), 0);
+        // Lomake sulkeutuu ja onnistumisilmoitus näytetään kulmassa (päätös P7)
+        UI.toast('Salasanasi on vaihdettu.');
         return undefined;
       },
     });
