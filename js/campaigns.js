@@ -258,13 +258,8 @@
       message: `Haluatko varmasti poistaa kampanjan "${c.name}"? Kampanjan mainokset säilyvät, mutta ne irrotetaan kampanjasta.`,
     });
     if (!ok) return;
-    try {
-      await Api.del(`/api/campaigns/${c.id}`);
-      load();
-      UI.toast(`Kampanja "${c.name}" poistettu.`);
-    } catch (err) {
-      UI.toast(err.message, 'error');
-    }
+    // Poisto kumottavissa 10 s (Kumoa-painike ilmoituksessa)
+    UI.deleteWithUndo({ path: `/api/campaigns/${c.id}`, message: `Kampanja "${c.name}" poistettu.`, reload: load });
   };
 
   // Event delegation: rivit piirretään uudelleen joka latauksessa, joten kuunnellaan tbodya.

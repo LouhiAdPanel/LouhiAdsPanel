@@ -158,6 +158,86 @@ const UI = (() => {
     setTimeout(() => el.remove(), type === 'error' ? 6000 : 3500);
   };
 
+  /**
+   * Poisto, jonka voi kumota (heuristiikka 3, käyttäjän kontrolli ja vapaus).
+   * Kutsutaan, kun käyttäjä on jo vahvistanut poiston. Kohde katoaa listalta heti, ja
+   * kulmailmoituksessa on Kumoa-painike ja sekuntilaskuri. Varsinainen poisto (DELETE)
+   * lähetetään vasta, kun aika loppuu. Kumoa perii poiston, eikä palvelimelle lähetetä
+   * mitään. Jos käyttäjä poistuu sivulta ennen ajan loppumista, poisto lähetetään heti
+   * (keepalive-pyyntö ehtii perille, vaikka sivu sulkeutuu).
+   * Kohde piilotetaan api.js:n pendingDeletes-listan avulla: listahaut jättävät
+   * poistettavan rivin pois, joten reload() piirtää listan ilman sitä.
+   * @param {object} o
+   * @param {string} o.path     poistettavan kohteen osoite, esim. '/api/creatives/5'
+   * @param {string} o.message  ilmoitus, esim. 'Mainos "Syys 1" poistettu.'
+   * @param {Function} o.reload sivun listan uudelleenlataus
+   * @param {number} [o.seconds=10] kumoamisaika sekunteina
+   */
+  const deleteWithUndo = ({ path, message, reload, seconds = 10 }) => {
+    Api.pendingDeletes.add(path);
+    reload();
+
+    const host = [...document.querySelectorAll('dialog[open]')].pop() || document.body;
+    let box = host.querySelector(':scope > .toast-container');
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'toast-container';
+      box.setAttribute('role', 'status');
+      box.setAttribute('aria-live', 'polite');
+      host.appendChild(box);
+    }
+    const el = document.createElement('div');
+    el.className = 'toast toast-success toast-undo';
+    el.innerHTML = '<span class="toast-text"></span><button type="button" class="toast-action">Kumoa</button>'
+      + '<span class="toast-count" aria-hidden="true"></span>';
+    el.querySelector('.toast-text').textContent = message; // textContent -> ei XSS-riskiä
+    const countEl = el.querySelector('.toast-count');
+    box.appendChild(el);
+
+    let left = seconds;
+    let finished = false;
+    countEl.textContent = `${left} s`;
+    const tick = setInterval(() => {
+      left -= 1;
+      countEl.textContent = `${left} s`;
+      if (left <= 0) commit();
+    }, 1000);
+
+    const finish = () => {
+      finished = true;
+      clearInterval(tick);
+      el.remove();
+      window.removeEventListener('pagehide', onLeave);
+    };
+    async function commit() {
+      if (finished) return;
+      finish();
+      try {
+        await Api.del(path);
+      } catch (err) {
+        // Esim. tietokanta esti poiston: kohde palaa listalle ja syy näytetään
+        toast(err.message, 'error');
+      } finally {
+        Api.pendingDeletes.delete(path);
+        reload();
+      }
+    }
+    // Sivulta poistuttaessa poisto lähetetään heti (kumoamisaika katsotaan käytetyksi)
+    function onLeave() {
+      if (finished) return;
+      finish();
+      fetch(API_BASE + path, { method: 'DELETE', keepalive: true, credentials: 'same-origin' });
+    }
+    el.querySelector('.toast-action').addEventListener('click', () => {
+      if (finished) return;
+      finish();
+      Api.pendingDeletes.delete(path);
+      reload();
+      toast('Poisto peruttu.');
+    });
+    window.addEventListener('pagehide', onLeave);
+  };
+
   /* ---------- Yleiskäyttöinen lomakeikkuna ----------
      openForm({
        title, submitLabel,
@@ -637,7 +717,7 @@ const UI = (() => {
   };
 
   const openForm = ({ title, fields, values = {}, submitLabel = 'Tallenna', onSubmit, onDelete, onRender,
-                      deleteLabel = 'Poista', deleteConfirm = 'Haluatko varmasti poistaa? Toimintoa ei voi perua.',
+                      deleteLabel = 'Poista', deleteConfirm = 'Haluatko varmasti poistaa?',
                       deleteConfirmLabel = 'Poista', busyLabel = 'Tallennetaan…', headerHtml = '',
                       validate = null }) => {
     // Natiivi <dialog> + showModal(): selain hoitaa taustan estämisen, fokuksen
@@ -675,14 +755,39 @@ const UI = (() => {
     // Painikkeet pois käytöstä tallennuksen ajaksi -> ei tuplalähetyksiä
     const busy = (on) => form.querySelectorAll('button').forEach((b) => { b.disabled = on; });
 
-    dialog.querySelector('.modal-close').addEventListener('click', close);
-    form.querySelector('[data-action="cancel"]').addEventListener('click', close);
+    // Tallentamattomat muutokset (heuristiikka 5, virheiden ennaltaehkäisy): lomakkeen
+    // tila otetaan talteen avattaessa. Jos käyttäjä sulkee lomakkeen (Peruuta, × tai Esc)
+    // ja tila on muuttunut, kysytään ensin: OK = sulje ja hylkää muutokset,
+    // Palaa takaisin = jatka muokkausta. Tallennus, poisto ja esikatselun Hylkää
+    // sulkevat lomakkeen kysymättä (close()).
+    const snapshot = () => JSON.stringify([...form.elements]
+      .filter((el) => el.name && !['button', 'submit', 'file'].includes(el.type))
+      .map((el) => (el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value)));
+    let initial = '';
+    let asking = false;
+    const requestClose = async () => {
+      if (asking) return;
+      if (snapshot() !== initial) {
+        asking = true;
+        const discard = await confirmDialog({
+          title: 'Tallentamattomat muutokset',
+          message: 'Lomakkeessa on tallentamattomia muutoksia. Jos jatkat, muutokset menetetään.',
+          confirmLabel: 'OK', cancelLabel: 'Palaa takaisin', confirmCls: 'btn-primary',
+        });
+        asking = false;
+        if (!discard) return;
+      }
+      close();
+    };
+
+    dialog.querySelector('.modal-close').addEventListener('click', requestClose);
+    form.querySelector('[data-action="cancel"]').addEventListener('click', requestClose);
     // Esc: oletuksena dialog vain piilotettaisiin; close() myös poistaa sen DOMista
     dialog.addEventListener('cancel', (e) => {
       // Tiedostoikkunan peruutus lähettää kuvakentästä oman cancel-tapahtumansa, joka kuplii
       // ikkunaan asti: se ei ole Esc eikä saa sulkea lomaketta (testauksen havainto V1).
       if (e.target !== dialog) return;
-      e.preventDefault(); close(); }); // Esc
+      e.preventDefault(); requestClose(); }); // Esc
 
     form.addEventListener('submit', async (e) => {
       // method="dialog" sulkisi ikkunan heti; estetään, jotta ikkuna pysyy auki
@@ -752,6 +857,13 @@ const UI = (() => {
     // (muuten selain fokusoisi ensimmäisen painikkeen eli sulkurastin)
     const first = form.querySelector('input, select, textarea');
     if (first) first.focus();
+    // Lähtötila tallentamattomien muutosten vertailuun. Otetaan uudelleen seuraavassa
+    // ruudunpäivityksessä, jos sivun oma onRender-logiikka vielä täydentää kenttiä
+    // (ei kuitenkaan, jos käyttäjä on jo ehtinyt muokata).
+    initial = snapshot();
+    let userEdited = false;
+    form.addEventListener('input', () => { userEdited = true; }, { capture: true, once: true });
+    requestAnimationFrame(() => { if (!userEdited) initial = snapshot(); });
     return dialog;
   };
 
@@ -915,7 +1027,7 @@ const UI = (() => {
 
   return {
     esc, fmtInt, fmtPct, fmtDate, fmtRange, isoToDateInput, dateInputToIso,
-    STATUS, pill, tableMessage, toast, openForm, openInfo, choiceDialog, confirm: confirmDialog,
+    STATUS, pill, tableMessage, toast, deleteWithUndo, openForm, openInfo, choiceDialog, confirm: confirmDialog,
     notice: noticeDialog, setMultiselectOptions, pager, PAGE_SIZE,
   };
 })();

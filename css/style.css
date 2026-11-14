@@ -719,6 +719,15 @@ body:has(.modal[open]) { overflow: hidden; }
 }
 .toast-success { background: var(--slate-900); color: #fff; }
 .toast-error   { background: var(--brick-600); color: #fff; }
+/* Poiston ilmoitus Kumoa-painikkeella ja sekuntilaskurilla (UI.deleteWithUndo) */
+.toast-undo { display: flex; align-items: center; gap: 12px; }
+.toast-undo .toast-text { flex: 1; }
+.toast-action {
+  background: none; border: 1px solid rgba(255, 255, 255, 0.55); color: #fff;
+  border-radius: var(--radius-sm); padding: 4px 10px; font: inherit; font-weight: 600; cursor: pointer;
+}
+.toast-action:hover, .toast-action:focus-visible { background: rgba(255, 255, 255, 0.15); outline: none; }
+.toast-count { font-variant-numeric: tabular-nums; opacity: 0.7; min-width: 28px; text-align: right; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 @media (max-width: 760px) {

@@ -92,16 +92,16 @@
       // Uudella mainostajalla ei ole Poista-painiketta (onDelete = null).
       // Vahvistus kertoo poistettavan mainostajan nimen (päätös P7).
       deleteLabel: 'Poista mainostaja',
-      deleteConfirm: advertiser ? `Haluatko varmasti poistaa mainostajan "${advertiser.name}"? Toimintoa ei voi perua.` : '',
+      deleteConfirm: advertiser ? `Haluatko varmasti poistaa mainostajan "${advertiser.name}"?` : '',
       onDelete: isNew ? null : async () => {
         // Tietokanta estää poiston (campaigns.advertiser_id ON DELETE RESTRICT), joten
         // tarkistetaan jo tässä ja annetaan selkeämpi ohje kuin palvelimen virhe.
         if (advertiser.campaign_count > 0) {
           throw new Error('Mainostajalla on kampanjoita, joten sitä ei voi poistaa. Aseta tilaksi "Ei aktiivinen".');
         }
-        await Api.del(`/api/advertisers/${advertiser.id}`);
-        UI.toast(`Mainostaja "${advertiser.name}" poistettu.`);
-        load();
+        // Poisto kumottavissa 10 s (Kumoa-painike ilmoituksessa)
+        UI.deleteWithUndo({ path: `/api/advertisers/${advertiser.id}`,
+          message: `Mainostaja "${advertiser.name}" poistettu.`, reload: load });
       },
     });
   };

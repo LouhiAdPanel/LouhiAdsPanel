@@ -65,6 +65,10 @@ function formatApiError(data, status) {
  * @returns {Promise<any>} vastauksen JSON, tai null (204 No Content)
  * @throws {ApiError} verkkovirheessä tai kun vastaus ei ole 2xx
  */
+/** Kumottavissa olevat poistot: poistettavan kohteen osoitteet, esim. '/api/creatives/5'.
+    Täytetään UI.deleteWithUndo-funktiossa; poisto lähetetään vasta kumoamisajan jälkeen. */
+const pendingDeletes = new Set();
+
 async function request(method, path, body) {
   const options = { method, headers: {} };
   if (body !== undefined) {
@@ -89,6 +93,13 @@ async function request(method, path, body) {
   }
 
   if (res.status === 204) return null;
+  // Kumottavissa olevat poistot (UI.deleteWithUndo): listahaku jättää poistettavat rivit pois,
+  // jotta ne eivät palaa näkyviin, vaikka lista ladataan uudelleen kumoamisajan aikana.
+  if (method === 'GET' && pendingDeletes.size && res.ok) {
+    const base = path.split('?')[0];
+    const data = await res.json().catch(() => null);
+    return Array.isArray(data) ? data.filter((x) => !pendingDeletes.has(`${base}/${x.id}`)) : data;
+  }
   // Runko ei välttämättä ole JSONia (esim. välityspalvelimen HTML-virhesivu)
   const data = await res.json().catch(() => null);
 
@@ -162,4 +173,5 @@ const Api = {
   del:   (path)         => request('DELETE', path),
   query: toQuery,
   upload: uploadFile,
+  pendingDeletes,
 };

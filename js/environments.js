@@ -110,16 +110,11 @@
     }
     const ok = await UI.confirm({
       title: 'Poista ympäristö',
-      message: `Haluatko varmasti poistaa ympäristön "${env.name}"? Toimintoa ei voi perua.`,
+      message: `Haluatko varmasti poistaa ympäristön "${env.name}"?`,
     });
     if (!ok) return;
-    try {
-      await Api.del(`/api/environments/${env.id}`);
-      UI.toast(`Ympäristö "${env.name}" poistettu.`);
-      load();
-    } catch (err) {
-      UI.toast(err.message, 'error');
-    }
+    // Poisto kumottavissa 10 s (Kumoa-painike ilmoituksessa)
+    UI.deleteWithUndo({ path: `/api/environments/${env.id}`, message: `Ympäristö "${env.name}" poistettu.`, reload: load });
   };
 
   tbody.addEventListener('click', (e) => {

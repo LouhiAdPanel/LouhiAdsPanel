@@ -416,9 +416,9 @@
       deleteLabel: 'Poista mainos',
       deleteConfirm: creative ? `Haluatko varmasti poistaa mainoksen "${creative.name}"? Mainoksen näyttö- ja klikkitilastot poistuvat samalla.` : '',
       onDelete: isNew ? null : async () => {
-        await Api.del(`/api/creatives/${creative.id}`);
-        UI.toast(`Mainos "${creative.name}" poistettu.`);
-        loadCreatives();
+        // Poisto kumottavissa 10 s (Kumoa-painike ilmoituksessa)
+        UI.deleteWithUndo({ path: `/api/creatives/${creative.id}`,
+          message: `Mainos "${creative.name}" poistettu.`, reload: loadCreatives });
       },
     });
   };

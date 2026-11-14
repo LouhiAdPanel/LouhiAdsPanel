@@ -263,13 +263,8 @@
       message: `Haluatko varmasti poistaa mainospaikan "${p.name}"? Paikan mainossijoitukset ja tilastot poistuvat samalla.`,
     });
     if (!ok) return;
-    try {
-      await Api.del(`/api/placements/${p.id}`);
-      UI.toast(`Mainospaikka "${p.name}" poistettu.`);
-      load();
-    } catch (err) {
-      UI.toast(err.message, 'error');
-    }
+    // Poisto kumottavissa 10 s (Kumoa-painike ilmoituksessa)
+    UI.deleteWithUndo({ path: `/api/placements/${p.id}`, message: `Mainospaikka "${p.name}" poistettu.`, reload: load });
   };
 
   /**

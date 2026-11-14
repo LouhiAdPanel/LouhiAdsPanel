@@ -102,11 +102,11 @@
       // Omaa tiliä ei voi poistaa (ei Poista-painiketta), ettei admin lukitse itseään ulos.
       // Vahvistus kertoo poistettavan käyttäjän nimen ja sähköpostin (päätös P7).
       deleteLabel: 'Poista käyttäjä',
-      deleteConfirm: user ? `Haluatko varmasti poistaa käyttäjän "${user.name}" (${user.email})? Toimintoa ei voi perua.` : '',
+      deleteConfirm: user ? `Haluatko varmasti poistaa käyttäjän "${user.name}" (${user.email})?` : '',
       onDelete: isNew || isMe ? null : async () => {
-        await Api.del(`/api/users/${user.id}`);
-        UI.toast(`Käyttäjä "${user.name}" poistettu.`);
-        load();
+        // Poisto kumottavissa 10 s (Kumoa-painike ilmoituksessa)
+        UI.deleteWithUndo({ path: `/api/users/${user.id}`,
+          message: `Käyttäjä "${user.name}" poistettu.`, reload: load });
       },
     });
   };
