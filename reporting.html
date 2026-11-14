@@ -6,7 +6,7 @@
 <title>Raportointi · Louhi Ads</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=33">
+<link rel="stylesheet" href="css/style.css?v=35">
 </head>
 <body>
 <!-- Yläpalkki koko sivun levyisenä: logo vasemmalla, käyttäjä ja tilitoiminnot oikealla (auth.js) -->
@@ -76,7 +76,7 @@
     </div>
 
     <div class="section-card">
-      <!-- Rivi 1: valitun ajanjakson otsikko ja Excel-vienti. Rivi 2: suodattimet, ensin
+      <!-- Rivi 1: valitun ajanjakson otsikko ja CSV-vienti. Rivi 2: suodattimet, ensin
            ajanjakso (pikavalinta + aloitus- ja loppupäivä, päätös P6), sitten rajaukset. -->
       <div class="section-toolbar report-toolbar">
         <h2 id="report-period-title">Ajanjakso</h2>
@@ -105,9 +105,9 @@
             <option value="day">Päivittäin</option>
           </select>
         </div>
-        <!-- Vientipainike otsikkorivin oikeassa reunassa: Excel (.xlsx), CSV yhteenvedon vieressä -->
+        <!-- Vientipainike otsikkorivin oikeassa reunassa: CSV-tiedosto (avautuu Excelissä) -->
         <div class="toolbar-actions">
-          <button class="btn btn-primary" id="report-xlsx" type="button">⭳ Vie Excel</button>
+          <button class="btn btn-primary" id="report-csv" type="button">⭳ Vie CSV</button>
         </div>
       </div>
 
@@ -124,8 +124,6 @@
           <span class="metric-value" id="sum-ctr">–</span>
           <span class="metric-label">Keskimääräinen CTR</span>
         </div>
-        <button class="btn-ghost report-csv-link" id="report-csv" type="button"
-                title="Puolipisteellä eroteltu tekstitiedosto muihin ohjelmiin">Lataa CSV-tiedostona</button>
       </div>
 
       <table class="data-table">
@@ -163,10 +161,10 @@
   </div>
   <div class="app-footer-bottom">© 2026 Louhi Ads · <span class="accent">Kouluprojekti</span></div>
 </footer>
-  <script src="js/api.js?v=33"></script>
-  <script src="js/password-toggle.js?v=33"></script>
-  <script src="js/ui.js?v=33"></script>
-  <script src="js/auth.js?v=33"></script>
-  <script src="js/reporting.js?v=33"></script>
+  <script src="js/api.js?v=35"></script>
+  <script src="js/password-toggle.js?v=35"></script>
+  <script src="js/ui.js?v=35"></script>
+  <script src="js/auth.js?v=35"></script>
+  <script src="js/reporting.js?v=35"></script>
 </body>
 </html>

@@ -3,4 +3,3 @@ uvicorn[standard]>=0.30
 psycopg[binary]>=3.2
 psycopg-pool>=3.2
 python-dotenv>=1.0
-openpyxl>=3.1

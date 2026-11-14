@@ -12,6 +12,8 @@
    - Ei koskaan hidasta tai riko sivua: lyhyt aikakatkaisu, kaikki
      virheet ohitetaan hiljaa ja mainospaikka jää tyhjäksi.
    - Myöhemmin sivulle lisätyt mainospaikat: window.LouhiAds.refresh()
+   - Haun tulos merkitään elementtiin: data-louhi-status = ok | empty (ei
+     näytettävää mainosta) | error (aikakatkaisu tai verkkovirhe).
 
    Käytetään: ulkopuolisilla isäntäsivuilla (Louhen palvelut) sekä
    testisivulla ad-demo.html. EI hallintapaneelin sivuilla.
@@ -175,8 +177,16 @@
         clearTimeout(timer);
         return res.status === 200 ? res.json() : null; // 204 = ei mainosta
       })
-      .then(function (ad) { if (ad) render(el, ad); })
-      .catch(function () { /* mainos ei ole sivulle kriittinen */ });
+      .then(function (ad) {
+        // data-louhi-status kertoo isäntäsivulle (ja testisivulle) haun tuloksen:
+        // ok = mainos näytetään, empty = ei näytettävää mainosta (204)
+        el.setAttribute('data-louhi-status', ad ? 'ok' : 'empty');
+        if (ad) render(el, ad);
+      })
+      .catch(function () {
+        // Aikakatkaisu tai verkkovirhe. Mainos ei ole sivulle kriittinen.
+        el.setAttribute('data-louhi-status', 'error');
+      });
   }
 
   /** Käy läpi kaikki sivun mainospaikat ja lataa mainoksen niihin, joihin ei vielä ole

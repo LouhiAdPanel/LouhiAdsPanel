@@ -489,9 +489,6 @@ img { max-width: 100%; display: block; }
   flex-wrap: wrap;
 }
 
-/* CSV-lataus yhteenvetorivin oikeassa reunassa (Excel-vienti on otsikkorivillä) */
-.report-csv-link { margin-left: auto; align-self: flex-end; font-size: 13px; color: var(--azurite-700); }
-
 .report-summary .metric span {
   display: block;
 }
