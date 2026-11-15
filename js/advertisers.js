@@ -57,7 +57,7 @@
           ${a.active_campaign_count ? `<span class="cell-sub">${a.active_campaign_count} aktiivista</span>` : ''}
         </td>
         <td class="cell-muted">${a.creative_count}</td>
-        <td class="cell-actions"><button class="btn-ghost admin-only" data-edit="${a.id}">Muokkaa</button></td>
+        <td class="cell-actions admin-only"><button class="btn-ghost" data-edit="${a.id}">Muokkaa</button></td>
       </tr>`).join('');
   };
 

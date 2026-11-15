@@ -161,7 +161,8 @@
     code.addEventListener('input', () => { edited = true; check(); });
   };
 
-  /** Piirtää mainospaikkataulukon. Muokkaa-painike näkyy vain adminille (.admin-only). */
+  /** Piirtää mainospaikkataulukon. Toiminnot-sarake (Näkyvyys, Muokkaa, Poista) näkyy vain
+      adminille (.admin-only): editorilta piilotetaan koko sarake, ettei jää tyhjää saraketta. */
   const render = () => {
     countEl.textContent = `Kaikki mainospaikat (${placements.length})`;
     if (!placements.length) {
@@ -178,7 +179,7 @@
           <button class="btn-ghost cell-sub" data-embed="${p.id}">Upotuskoodi</button></td>
         <td class="cell-muted">${p.width} × ${p.height}</td>
         <td>${UI.pill(p.status)}</td>
-        <td class="cell-actions">
+        <td class="cell-actions admin-only">
           <button class="btn btn-small admin-only" data-visibility="${p.id}">Näkyvyys</button>
           <button class="btn btn-small admin-only" data-edit="${p.id}">Muokkaa</button>
           <button class="btn btn-small btn-small-danger admin-only" data-delete="${p.id}">Poista</button>

@@ -743,6 +743,8 @@ body:has(.modal[open]) { overflow: hidden; }
 
 /* Vain adminille näkyvät elementit (piilossa, kunnes rooli on varmistettu) */
 body:not(.role-admin) .admin-only { display: none !important; }
+/* Vain ruudunlukijalle näkyvä teksti (esim. Toiminnot-sarakkeen otsikko) */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 /* Sivupalkin käyttäjätoiminnot */
 .user-actions {
@@ -1410,3 +1412,49 @@ body:not(.role-admin) .admin-only { display: none !important; }
 .password-toggle:focus-visible { outline: 2px solid var(--azurite-500); outline-offset: 1px; }
 input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear { display: none; }
+
+/* ============================================================
+   21. Suomenkielinen päivämäärävalitsin (js/datepicker.js)
+   Näkyvä tekstikenttä (p.k.vvvv) + kalenteripainike. Selaimen oma
+   päivämääräkenttä jää piiloon arvon säilyttäjäksi (vvvv-kk-pp).
+   ============================================================ */
+.datepicker { position: relative; display: block; }
+.date-range .datepicker { display: inline-block; }
+.datepicker .input { width: 100%; padding-right: 40px; }
+.date-range .datepicker .input { width: 150px; }
+.datepicker-native { display: none !important; }
+.datepicker-btn {
+  position: absolute; top: 50%; right: 5px; transform: translateY(-50%);
+  display: inline-grid; place-items: center; width: 30px; height: 30px;
+  border: none; border-radius: var(--radius-sm); background: transparent;
+  color: var(--ink-600); cursor: pointer;
+}
+.datepicker-btn:hover:not(:disabled) { color: var(--azurite-700); background: var(--stone-50); }
+.datepicker-btn:focus-visible { outline: 2px solid var(--azurite-500); outline-offset: 1px; }
+.datepicker-btn:disabled { cursor: default; opacity: 0.5; }
+.datepicker-pop {
+  position: fixed; z-index: 1100; width: 272px; padding: 10px;
+  background: #fff; border: 1px solid var(--stone-300); border-radius: var(--radius-md);
+  box-shadow: 0 8px 28px rgba(20, 24, 29, 0.18); font-family: var(--font-body); color: var(--ink-900);
+}
+.dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.dp-title { font-weight: 600; font-size: 14px; }
+.dp-nav {
+  width: 30px; height: 30px; border: none; border-radius: var(--radius-sm); background: transparent;
+  font-size: 20px; line-height: 1; color: var(--ink-600); cursor: pointer;
+}
+.dp-nav:hover { background: var(--stone-50); color: var(--azurite-700); }
+.dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.dp-wd { text-align: center; font-size: 11.5px; font-weight: 600; color: var(--ink-600); padding: 4px 0; }
+.dp-day {
+  height: 32px; border: none; border-radius: var(--radius-sm); background: transparent;
+  font: inherit; font-size: 13px; color: var(--ink-900); cursor: pointer;
+}
+.dp-day:hover { background: var(--azurite-100); }
+.dp-day.is-other { color: var(--stone-400); }
+.dp-day.is-today { box-shadow: inset 0 0 0 1px var(--azurite-600); font-weight: 600; }
+.dp-day.is-selected { background: var(--azurite-600); color: #fff; font-weight: 600; }
+.dp-day:focus-visible, .dp-nav:focus-visible, .dp-link:focus-visible { outline: 2px solid var(--azurite-500); outline-offset: 1px; }
+.dp-foot { display: flex; justify-content: space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--stone-200); }
+.dp-link { border: none; background: none; color: var(--azurite-700); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 4px 6px; border-radius: var(--radius-sm); }
+.dp-link:hover { background: var(--azurite-100); }
