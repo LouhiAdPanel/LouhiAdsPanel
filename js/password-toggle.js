@@ -1,10 +1,10 @@
 /* ============================================================
    LOUHI ADS — salasanan näyttäminen ("silmä"-painike)
 
-   Tiimin päätös P3 (Sprint 4): jokaisessa salasanakentässä on näytä/piilota-
-   painike kaikissa selaimissa. Edgen oma silmä katoaa, kun kentästä siirtyy
-   pois, eikä Chromessa ja Firefoxissa ole painiketta lainkaan, joten käytetään
-   omaa painiketta ja piilotetaan Edgen oma (style.css, ::-ms-reveal).
+   Jokaisessa salasanakentässä on näytä/piilota-painike kaikissa selaimissa.
+   Edgen oma silmä katoaa, kun kentästä siirtyy pois, eikä Chromessa ja Firefoxissa
+   ole painiketta lainkaan, joten käytetään omaa painiketta ja piilotetaan Edgen oma
+   (style.css, ::-ms-reveal).
 
    Toiminta: skripti etsii sivun kaikki salasanakentät (input[type=password]) ja
    lisää jokaisen oikeaan reunaan silmä-painikkeen. Painike vaihtaa kentän

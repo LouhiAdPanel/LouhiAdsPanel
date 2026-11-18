@@ -5,7 +5,8 @@
 --
 -- HUOM: Tiedosto pudottaa olemassa olevat taulut ensin, joten sen voi
 -- ajaa kehitysvaiheessa uudelleen "puhtaalta pöydältä".
--- ÄLÄ aja tuotantokantaan.
+-- ÄLÄ aja käytössä olevaan tuotantokantaan (kaikki data poistuu). Uuden, tyhjän
+-- tuotantokannan voi luoda tällä tiedostolla (ilman seed.sql:ää).
 --
 -- Muutokset olemassa olevaan kantaan tehdään db/migrations/-kansion tiedostoilla.
 -- Kun muutat tätä tiedostoa, tee samasta muutoksesta myös migraatio.

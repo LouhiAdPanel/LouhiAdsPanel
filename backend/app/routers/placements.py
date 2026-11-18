@@ -1,12 +1,12 @@
 """Mainospaikat (placements) – Mainospaikat-sivu (placements.html).
 
-Mainospaikka on sivuston kohta, johon mainos näytetään (esim. etusivun banneri).
+Mainospaikka on sivuston tai uutiskirjeen kohta, johon mainos näytetään (esim. etusivun banneri).
 Jokaisella paikalla on yksilöllinen code ("placement ID"), jonka sivusto upottaa
 mainostagiin (data-placement="..."); jakelu (serving.py) hakee mainoksen sen perusteella.
 Paikan leveys ja korkeus ovat mainospaikan koko; mainostagi skaalaa kuvan siihen.
 
 Endpointit (polun /api/placements alla):
-  GET    /api/placements          -> kaikki mainospaikat + aktiivisten kampanjoiden määrä
+  GET    /api/placements          -> kaikki mainospaikat + aktiivisten sijoitusten määrä
   GET    /api/placements/{id}     -> yksi mainospaikka
   POST   /api/placements          -> uusi mainospaikka         (vain admin)
   PUT    /api/placements/{id}     -> päivitys (code ei muutu)  (vain admin)
@@ -86,7 +86,7 @@ def get_placement(placement_id: int, conn=Depends(get_conn)):
 def placement_visibility(placement_id: int, conn=Depends(get_conn)):
     """GET /api/placements/{placement_id}/visibility – mainosten näkymistodennäköisyydet.
 
-    Mainospaikat-sivun Näkyvyys-näkymä, vain admin (päätös P9: editor näkee mainospaikat ja
+    Mainospaikat-sivun Näkyvyys-näkymä, vain admin (editor näkee mainospaikat ja
     upotuskoodin, mutta ei painoarvoja ja todennäköisyyksiä; editorille 403). Käyttää samaa ehdokashakua
     (ELIGIBLE_SQL) ja samaa laskentaa (serving.py) kuin oikea mainosjakelu, joten luvut
     vastaavat sitä, miten mainokset tällä hetkellä arvotaan: osuus = mainoksen painoarvo /

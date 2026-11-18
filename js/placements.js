@@ -4,9 +4,10 @@
    Käyttäjä voi:
    - selata mainospaikkoja, avata paikan upotuskoodin ja nähdä mainosten näkymis-
      todennäköisyydet (Näkyvyys). Upotuskoodi näkyy kaikille, Näkyvyys VAIN ADMINILLE
-     (päätös P9: editorilta piilotetaan painoarvot ja todennäköisyydet)
-   - luoda, muokata ja poistaa mainospaikkoja (VAIN ADMIN; painikkeissa .admin-only,
-     palvelin tarkistaa oikeuden require_admin-riippuvuudella). Poisto kysyy vahvistuksen.
+     (editorilta piilotetaan painoarvot ja todennäköisyydet)
+   - luoda, muokata ja poistaa mainospaikkoja (VAIN ADMIN; Uusi mainospaikka -painike ja koko
+     Toiminnot-sarake ovat .admin-only, palvelin tarkistaa oikeuden require_admin-riippuvuudella).
+     Poisto kysyy vahvistuksen, ja sen voi kumota 10 sekunnin ajan.
 
    API:
    - GET    /api/placements        lista
@@ -34,7 +35,7 @@
 
   // width/height ovat mainospaikan koko: mainostagi skaalaa kuvan tähän kokoon.
   // Kentät wireframen järjestyksessä (Nimi, Koodi, Leveys, Korkeus, Status).
-  // Ympäristö on lisäksi pakollinen tieto (sprintin hyväksymiskriteeri, tietokannan sarake).
+  // Ympäristö on lisäksi pakollinen tieto (tietokannan sarake, viittaa Ympäristöt-sivun listaan).
   // Funktio: Koodi on muokattaessa vain luku.
   const fields = (isNew) => [
     { name: 'name', label: 'Nimi', required: true, maxlength: 150, placeholder: 'Louhi Konsoli – pääbanneri', wide: true,

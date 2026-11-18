@@ -6,7 +6,10 @@
    - hakea kampanjoita nimellä, tilalla ja mainostajalla (suodatus tehdään palvelimella)
    - luoda ja muokata kampanjoita: nimi, mainostaja, tila, aloitus- ja päättymispäivä,
      sallitut mainospaikat, kampanjan mainokset ja UTM-tunniste
-   - poistaa kampanjan rivin Poista-painikkeella (vahvistuskysymyksen jälkeen)
+   - poistaa kampanjan rivin Poista-painikkeella (vahvistuskysymyksen jälkeen; poiston voi
+     kumota 10 sekunnin ajan)
+   Päivämäärät: aktiivisella kampanjalla aloitus- ja päättymispäivä ovat pakollisia, ja uusi
+   tai muutettu päivä ei voi olla menneisyydessä (palvelin tarkistaa saman, dates.py).
    Kampanjan mainokset liitetään Mainokset-sivulla (sijoitukset): mainoksen voi sijoittaa
    vain kampanjan sallittuihin mainospaikkoihin.
    Tällä sivulla ei ole vain adminille rajattuja toimintoja.
@@ -18,7 +21,7 @@
    - PUT    /api/campaigns/{id}         päivitys (sis. placement_ids)
    - DELETE /api/campaigns/{id}         poisto (mainokset jäävät talteen; kampanjan sijoitukset
                                          irrotetaan ja merkitään ei-aktiivisiksi)
-   - GET    /api/advertisers, /api/placements   valintalistoja varten
+   - GET    /api/advertisers, /api/placements, /api/creatives   valintalistoja varten
 
    Tila: tietokantaan tallennetaan status (draft/active/paused/archived). Näytettävä tila
    display_status lasketaan näkymässä v_campaign_status: aktiivinen kampanja, jonka alku on
@@ -116,7 +119,7 @@
   /**
    * Aktiivisella kampanjalla on oltava aloitus- ja päättymispäivä (palvelin vaatii saman).
    * Päiväkenttien otsikoihin tulee pakollisuuden tähti (*) aina, kun tilaksi on valittu
-   * Aktiivinen, ja se poistuu muilla tiloilla (testauksen havainto V4: päivät vaadittiin,
+   * Aktiivinen, ja se poistuu muilla tiloilla (testauksessa havaittu: päivät vaadittiin,
    * vaikka tähteä ei ollut). Varsinainen tarkistus on lomakkeen validate-säännössä.
    */
   const attachDateRequirement = (form) => {
@@ -247,7 +250,7 @@
         if (isNew) await Api.post('/api/campaigns', payload);
         else await Api.put(`/api/campaigns/${campaign.id}`, payload);
         load();
-        // Onnistumisilmoitus kulmaan kuten muillakin sivuilla (päätös P7)
+        // Onnistumisilmoitus kulmaan kuten muillakin sivuilla
         UI.toast(isNew ? 'Kampanja luotu.' : 'Muutokset tallennettu.');
       },
     });

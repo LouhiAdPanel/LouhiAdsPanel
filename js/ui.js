@@ -1,10 +1,14 @@
 /* ============================================================
    LOUHI ADS — yhteiset käyttöliittymäapurit
-   Muotoilu (luvut, päivät), tilamerkit, ilmoitukset (toast)
-   ja yleiskäyttöinen lomakeikkuna (<dialog>).
+   - muotoilu (luvut, prosentit, päivämäärät suomalaisittain)
+   - tilamerkit (pill) ja kulmailmoitukset (toast)
+   - kumottava poisto (deleteWithUndo: Kumoa-painike 10 s)
+   - yleiskäyttöinen lomakeikkuna (openForm, <dialog>): kenttien tarkistus, virheet kentän
+     alla, pakollisuuden tähti ja varoitus tallentamattomista muutoksista
+   - valinta- ja vahvistusikkunat (choiceDialog, confirm), sivutus (pager), ?-ohjeet
 
-   Käytetään: kaikilla kirjautumisen takana olevilla sivuilla
-   (dashboard, campaigns, creatives, placements, advertisers, reporting, users).
+   Käytetään: kaikilla kirjautumisen takana olevilla sivuilla (dashboard, advertisers,
+   campaigns, creatives, placements, environments, reporting, users).
    Riippuvuudet: ei suoria. Kuvan latauskenttä kutsuu kentän omaa
    upload-funktiota, joka sivuskripteissä on yleensä Api.upload (api.js).
    Tyylit (modal, pill, toast, image-drop) ovat style.css:ssä.
@@ -142,7 +146,7 @@ const UI = (() => {
   const toast = (message, type = 'success') => {
     // Avoin ikkuna (<dialog>) on aina sivun päällimmäinen kerros, ja sen tausta sumentaa
     // sivun. Siksi ilmoitus lisätään päällimmäisen avoimen ikkunan sisään (näkyy sen päällä),
-    // muuten sivulle (testauksen havainto V2: "Upotuskoodi kopioitu" jäi sumennuksen taakse).
+    // muuten sivulle (testauksessa havaittu: "Upotuskoodi kopioitu" jäi sumennuksen taakse).
     const host = [...document.querySelectorAll('dialog[open]')].pop() || document.body;
     // Säiliö luodaan kerran kutakin isäntää kohden. role=status + aria-live
     // saa ruudunlukijan lukemaan ilmoituksen keskeyttämättä käyttäjää.
@@ -523,7 +527,7 @@ const UI = (() => {
     dialog.querySelector('.modal-close').addEventListener('click', () => done(null));
     dialog.addEventListener('cancel', (e) => {
       // Tiedostoikkunan peruutus lähettää kuvakentästä oman cancel-tapahtumansa, joka kuplii
-      // ikkunaan asti: se ei ole Esc eikä saa sulkea lomaketta (testauksen havainto V1).
+      // ikkunaan asti: se ei ole Esc eikä saa sulkea lomaketta (testauksessa havaittu ongelma).
       if (e.target !== dialog) return;
       e.preventDefault(); done(null); });
     dialog.querySelectorAll('[data-i]').forEach((btn) =>
@@ -541,7 +545,8 @@ const UI = (() => {
     })) === true;
 
   /**
-   * Ilmoitusikkuna (wireframet: esim. "Kampanja luotu", "Salasanasi on vaihdettu"):
+   * Ilmoitusikkuna (UI.notice). Ei tällä hetkellä käytössä: onnistumisilmoitukset näytetään
+   * kulmailmoituksina (toast), mutta ikkuna on jätetty valmiiksi tärkeitä ilmoituksia varten.
    * pelkkä viesti ja sulkuruksi (×), sulkeutuu myös Esc-näppäimellä ja klikkaamalla
    * ikkunan ulkopuolelle. Palauttaa lupauksen, joka ratkeaa, kun ikkuna suljetaan.
    * type 'error' näyttää viestin punaisena (virheilmoitus).
@@ -561,7 +566,7 @@ const UI = (() => {
     dialog.querySelector('.modal-close').addEventListener('click', done);
     dialog.addEventListener('cancel', (e) => {
       // Tiedostoikkunan peruutus lähettää kuvakentästä oman cancel-tapahtumansa, joka kuplii
-      // ikkunaan asti: se ei ole Esc eikä saa sulkea lomaketta (testauksen havainto V1).
+      // ikkunaan asti: se ei ole Esc eikä saa sulkea lomaketta (testauksessa havaittu ongelma).
       if (e.target !== dialog) return;
       e.preventDefault(); done(); });
     dialog.addEventListener('click', (e) => { if (e.target === dialog) done(); });
@@ -788,7 +793,7 @@ const UI = (() => {
     // Esc: oletuksena dialog vain piilotettaisiin; close() myös poistaa sen DOMista
     dialog.addEventListener('cancel', (e) => {
       // Tiedostoikkunan peruutus lähettää kuvakentästä oman cancel-tapahtumansa, joka kuplii
-      // ikkunaan asti: se ei ole Esc eikä saa sulkea lomaketta (testauksen havainto V1).
+      // ikkunaan asti: se ei ole Esc eikä saa sulkea lomaketta (testauksessa havaittu ongelma).
       if (e.target !== dialog) return;
       e.preventDefault(); requestClose(); }); // Esc
 
@@ -890,7 +895,7 @@ const UI = (() => {
     dialog.querySelector('.modal-close').addEventListener('click', close);
     dialog.addEventListener('cancel', (e) => {
       // Tiedostoikkunan peruutus lähettää kuvakentästä oman cancel-tapahtumansa, joka kuplii
-      // ikkunaan asti: se ei ole Esc eikä saa sulkea lomaketta (testauksen havainto V1).
+      // ikkunaan asti: se ei ole Esc eikä saa sulkea lomaketta (testauksessa havaittu ongelma).
       if (e.target !== dialog) return;
       e.preventDefault(); close(); });
     // Taustan (::backdrop) klikkaus kohdistuu itse dialog-elementtiin
@@ -954,7 +959,7 @@ const UI = (() => {
        const rows = pager.slice(filteredList);   // tämän sivun rivit; piirtää myös navigaation
        pager.reset();                            // suodatuksen muuttuessa takaisin sivulle 1
      Navigaatio: < Edellinen  1 … 4 5 6 … 12  Seuraava >, keskitettynä sekä listan ylä- että
-     alapuolella (päätös P8). Yhden sivun listassa se on piilossa.
+     alapuolella. Yhden sivun listassa se on piilossa.
      Jos sivu jää tyhjäksi (esim. viimeisen sivun viimeinen rivi poistettiin), siirrytään
      viimeiselle sivulle, jolla on rivejä. */
   const PAGE_SIZE = 20;
@@ -973,7 +978,7 @@ const UI = (() => {
 
   const pager = (container, onChange, pageSize = PAGE_SIZE) => {
     let page = 1;
-    // Sivutus näkyy sekä listan ylä- että alapuolella (päätös P8). Annettu säiliö on listan
+    // Sivutus näkyy sekä listan ylä- että alapuolella. Annettu säiliö on listan
     // alla; yläpuolen kopio luodaan automaattisesti listan (taulukko tai korttiruudukko)
     // eteen, joten sivujen HTML:ään riittää yksi säiliö.
     const list = container.previousElementSibling;

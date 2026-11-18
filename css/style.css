@@ -1,7 +1,9 @@
 /* ============================================================
    LOUHI ADS — hallintapaneelin tyylit
    Rakenne: 1) tokenit  2) reset/base  3) layout  4) komponentit
-   5) sivukohtaiset lisäykset  6) responsiivisuus
+   5) sivukohtaiset lisäykset  6) responsiivisuus  7) dynaamiset komponentit
+   8) kirjautuminen ja roolit  9) kuvan lataus  10) lomakkeen lukitut kentät
+   11) Louhen graafinen linjaus  12)–21) myöhemmät lisäykset (otsikot osioiden alussa)
    ============================================================ */
 
 /* ---------- 1. Design-tokenit ---------- */
@@ -833,32 +835,10 @@ body:not(.role-admin) .admin-only { display: none !important; }
   .image-drop { flex-direction: column; align-items: flex-start; }
 }
 
-/* Placement ID:n esikatselu mainospaikkalomakkeessa */
-.code-preview {
-  font-family: 'Courier New', monospace;
-  font-size: 13.5px;
-  padding: 9px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--stone-50);
-  border: 1px solid var(--stone-200);
-  color: var(--azurite-700);
-  word-break: break-all;
-}
-.code-preview.is-taken { color: var(--amber-600); }
-.code-preview.is-taken::after { content: '  (varattu – saa numeron)'; font-family: var(--font-body); font-size: 12px; }
-
-/* ---------- 10. Mainoksen koko vs. mainospaikan maksimikoko ---------- */
+/* ---------- 10. Lomakkeen lukitut kentät ja huomautukset ---------- */
+/* Lukittu kenttä, esim. kuvasta luettu leveys ja korkeus */
 .field .input[readonly] { background: var(--stone-50); color: var(--ink-600); cursor: default; }
-.fit-panel .fit-body, .fit-panel { font-size: 13px; }
-.fit-summary { margin-bottom: 6px; color: var(--malachite-600); font-weight: 600; }
-.fit-summary.is-error { color: var(--brick-600); }
-.fit-list { list-style: none; display: flex; flex-direction: column; gap: 3px; }
-.fit-list li { display: flex; gap: 8px; align-items: baseline; }
-.fit-list li::before { width: 14px; font-weight: 700; }
-.fit-list li.fit-yes::before { content: '✓'; color: var(--malachite-600); }
-.fit-list li.fit-no { color: var(--ink-600); }
-.fit-list li.fit-no::before { content: '✕'; color: var(--brick-600); }
-.fit-list li span { color: var(--ink-600); font-size: 12px; }
+/* Huomautus (oranssi): mainos ilman mainospaikkoja, samankaltainen nimi */
 .no-campaign { color: var(--amber-600); font-weight: 500; }
 .cell-warn { color: var(--amber-600) !important; font-weight: 500; }
 
@@ -1179,8 +1159,8 @@ body:not(.role-admin) .admin-only { display: none !important; }
 /* ============================================================
    14. Listauslaatikon otsikkorivi
    Vasemmalla listan otsikko (esim. "Mainokset (7)") ja heti sen vieressä suodattimet /
-   haku; oikeassa reunassa sivun luontipainike (.toolbar-actions, esim. "+ Lisää uusi
-   mainos" tai "Vie CSV").
+   haku; oikeassa reunassa sivun pääpainike (.toolbar-actions, esim. "+ Lisää uusi
+   mainos" tai raportoinnin "Lataa CSV").
    ============================================================ */
 .section-toolbar { justify-content: flex-start; column-gap: 20px; }
 .section-toolbar .filters { align-items: center; }
@@ -1252,9 +1232,9 @@ body:not(.role-admin) .admin-only { display: none !important; }
 }
 
 /* ============================================================
-   16. Ilmoitusikkunat (UI.notice) ja vahvistukset
-   Wireframejen ilmoitukset, esim. "Kampanja luotu" ja "Salasanasi on vaihdettu":
-   pelkkä viesti ja sulkuruksi. Virheilmoitus (is-error) punaisella.
+   16. Ilmoitusikkuna (UI.notice)
+   Pelkkä viesti ja sulkuruksi, virheilmoitus (is-error) punaisella. Ei tällä hetkellä
+   käytössä: onnistumisilmoitukset näytetään kulmailmoituksina (toast, osa 7).
    ============================================================ */
 .modal-notice { width: min(420px, calc(100vw - 32px)); }
 .modal-notice .modal-header { border-bottom: none; padding-bottom: 0; }
@@ -1263,13 +1243,13 @@ body:not(.role-admin) .admin-only { display: none !important; }
 .modal-notice.is-error .notice-message { color: #B42318; }
 
 /* ============================================================
-   17. Sivutus (UI.pager) listojen alla
+   17. Sivutus (UI.pager) listojen ylä- ja alapuolella
    "1–20 / 57" vasemmalla, sivunumerot ja Edellinen/Seuraava oikealla.
    Nykyinen sivu oranssilla pohjalla; ensimmäisellä/viimeisellä sivulla
    Edellinen/Seuraava on himmennetty (disabled).
    ============================================================ */
 .pager {
-  /* Keskitetty: sivunumerot ja niiden alla "1–20 / 57" (päätös P8) */
+  /* Keskitetty: sivunumerot ja niiden alla "1–20 / 57" */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1302,7 +1282,7 @@ body:not(.role-admin) .admin-only { display: none !important; }
 .creative-grid + .pager { border-top: none; padding-top: 4px; }
 .pager-top:has(+ .creative-grid) { border-bottom: none; padding-bottom: 4px; }
 
-/* Raportoinnin työkalurivi (päätös P6): rivillä 1 valitun ajanjakson otsikko ja Vie Excel,
+/* Raportoinnin työkalurivi: rivillä 1 valitun ajanjakson otsikko ja Lataa CSV,
    rivillä 2 suodattimet: ajanjakson pikavalinta, sen oikealla aloitus- ja loppupäivä,
    sitten mainostaja, kampanja ja ryhmittely. */
 .report-toolbar .filters { order: 3; flex: 1 0 100%; }
@@ -1382,13 +1362,13 @@ body:not(.role-admin) .admin-only { display: none !important; }
 .slot-note { margin-top: 6px; font-size: 12.5px; color: var(--ink-600); }
 .slot-intro { margin-bottom: 12px; font-size: 13px; color: var(--ink-600); }
 
-/* Vanhentuneen mainoksen kortissa tilan alla päättymispäivä (päätös P2) */
+/* Vanhentuneen mainoksen kortissa tilan alla päättymispäivä */
 .creative-status { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .creative-status .cell-sub { margin-top: 0; }
 
 /* ============================================================
    20. Salasanan näyttäminen ("silmä"-painike, js/password-toggle.js)
-   Painike salasanakentän oikeassa reunassa kaikissa selaimissa (päätös P3).
+   Painike salasanakentän oikeassa reunassa kaikissa selaimissa.
    Edgen oma silmä piilotetaan, ettei kenttään tule kahta painiketta.
    ============================================================ */
 .password-wrap { position: relative; display: block; }

@@ -17,7 +17,10 @@
    - esikatsella mainoksen kuvaa kortin Esikatselu-painikkeella
    - lisätä ja muokata mainosta: lomakkeen "Esikatsele" näyttää mainoksen ennen tallennusta,
      ja esikatselussa valitaan Hylkää / Palaa takaisin muokkaamaan / Hyväksy
-   - poistaa mainoksen muokkauslomakkeelta (vahvistuskysymyksen jälkeen)
+   - poistaa mainoksen muokkauslomakkeelta (vahvistuskysymyksen jälkeen; poiston voi kumota
+     10 sekunnin ajan)
+   Päivämäärät: Näkyy alkaen- ja Näkyy asti -päivä ovat valinnaisia, mutta uusi tai muutettu
+   päivä ei voi olla menneisyydessä (palvelin tarkistaa saman, dates.py).
    Tällä sivulla ei ole vain adminille rajattuja toimintoja.
 
    API:
@@ -26,7 +29,7 @@
    - POST   /api/creatives               uusi mainos ja sen sijoitukset
    - PUT    /api/creatives/{id}          päivitys
    - DELETE /api/creatives/{id}          poisto
-   - GET    /api/advertisers, /api/campaigns, /api/placements   valintalistat
+   - GET    /api/advertisers, /api/campaigns, /api/placements, /api/environments   valintalistat
 
    Sivulle voi tulla linkillä creatives.html?campaign_id=5 (Kampanjat-sivulta),
    jolloin kampanjasuodatin on valmiiksi päällä. */
@@ -48,7 +51,7 @@
   const STATUS_LABELS = { active: 'Aktiivinen', paused: 'Tauolla', inactive: 'Ei aktiivinen' };
   const statusPill = (status) => UI.pill(status, { paused: 'Tauolla' });
 
-  /* Vanhentunut mainos (päätös P2): kun Näkyy asti -päivä ohittuu, palvelin muuttaa mainoksen
+  /* Vanhentunut mainos: kun Näkyy asti -päivä ohittuu, palvelin muuttaa mainoksen
      tilaksi Ei aktiivinen (creatives.py, expire_creatives). Kortissa näytetään silloin
      päättymispäivä, jotta syy näkyy. Uudelleen käyttöön: uusi päivä + tila Aktiivinen. */
   const pad2 = (n) => String(n).padStart(2, '0');
@@ -385,7 +388,7 @@
       // Päivämääräpari: näkyvyys ei voi päättyä ennen kuin se alkaa. Uusi tai muutettu päivä ei
       // voi olla menneisyydessä (tämä päivä käy); jo tallennettu mennyt päivä saa jäädä
       // ennalleen (palvelin: dates.py). Aktiivisella mainoksella Näkyy asti -päivä ei voi olla
-      // mennyt (mainos vanhenisi heti, päätös P2).
+      // mennyt (mainos vanhenisi heti).
       validate: (data) => {
         const past = (name) => data[name] && data[name] < todayInput() && data[name] !== values[name];
         return {
@@ -421,7 +424,7 @@
         UI.toast(isNew ? 'Mainos luotu.' : 'Muutokset tallennettu.');
         loadCreatives();
       },
-      // Vahvistus kertoo poistettavan mainoksen nimen (päätös P7)
+      // Vahvistus kertoo poistettavan mainoksen nimen
       deleteLabel: 'Poista mainos',
       deleteConfirm: creative ? `Haluatko varmasti poistaa mainoksen "${creative.name}"? Mainoksen näyttö- ja klikkitilastot poistuvat samalla.` : '',
       onDelete: isNew ? null : async () => {
@@ -450,7 +453,7 @@
     ? `<img src="${UI.esc(c.image_url)}" alt="${UI.esc(c.alt_text)}" loading="lazy">`
     : `${c.width || '?'} × ${c.height || '?'}`;
 
-  /** Piirtää mainoskortit (wireframe: kuva, Mainos #, nimi, Target URL, paino, status). */
+  /** Piirtää mainoskortit (wireframe: kuva, Mainos #, nimi, Target URL, painoarvo, status). */
   const render = () => {
     const shown = filters.status ? creatives.filter((c) => c.status === filters.status) : creatives;
     countEl.textContent = `Mainokset (${shown.length})`;

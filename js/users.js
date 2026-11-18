@@ -100,7 +100,7 @@
         load();
       },
       // Omaa tiliä ei voi poistaa (ei Poista-painiketta), ettei admin lukitse itseään ulos.
-      // Vahvistus kertoo poistettavan käyttäjän nimen ja sähköpostin (päätös P7).
+      // Vahvistus kertoo poistettavan käyttäjän nimen ja sähköpostin.
       deleteLabel: 'Poista käyttäjä',
       deleteConfirm: user ? `Haluatko varmasti poistaa käyttäjän "${user.name}" (${user.email})?` : '',
       onDelete: isNew || isMe ? null : async () => {

@@ -17,13 +17,16 @@ mainospaikat (vähintään yksi) ja yhteiset asetukset, ja jokaisesta paikasta t
 sijoitus. Kampanja EI ole pakollinen: ilman kampanjaa sijoitus näkyy oman aikataulunsa
 mukaan.
 
-Vanhentunut mainos (tiimin päätös P2): kun mainoksen kaikkien voimassa olevien sijoitusten
+Vanhentunut mainos: kun mainoksen kaikkien voimassa olevien sijoitusten
 Näkyy asti -päivä (end_time) on ohittunut, järjestelmä muuttaa mainoksen tilaksi
 'inactive' (Ei aktiivinen). Muutos tehdään aina, kun mainoksia haetaan (expire_creatives),
 joten erillistä ajastettua taustatyötä ei tarvita. Jakelu (serving.py) lopettaa vanhentuneen
 mainoksen näyttämisen jo päivän ohituttua, joten tila ehtii aina ajan tasalle ennen kuin
 käyttäjä näkee mainoslistan. Mainoksen voi ottaa uudelleen käyttöön vaihtamalla päivän ja
 tilan Aktiiviseksi.
+
+Päivämäärät: Näkyy alkaen- ja Näkyy asti -päivä eivät voi olla menneisyydessä, mutta jo
+tallennettu mennyt päivä saa jäädä ennalleen, ks. dates.py.
 
 Mainoksen tallennus on kaksivaiheinen: 1) frontend lataa kuvan /upload-reittiin, joka
 tallentaa sen tietokantaan (media.py) ja palauttaa osoitteen /media/<nimi>; 2) lomake
@@ -80,7 +83,7 @@ WHERE (%(id)s::int            IS NULL OR cr.id = %(id)s)
 ORDER BY a.name, cr.name
 """
 
-# Vanhentuneet mainokset -> Ei aktiivinen (päätös P2). Mainos vanhenee, kun sillä on
+# Vanhentuneet mainokset -> Ei aktiivinen. Mainos vanhenee, kun sillä on
 # voimassa olevia sijoituksia (status <> 'inactive') ja jokaisen niistä Näkyy asti -aika on
 # ohitettu. Sijoitus ilman päättymisaikaa (toistaiseksi) pitää mainoksen voimassa.
 # Vain aktiiviset mainokset muutetaan: Tauolla-tilaan asetettu mainos säilyttää tilansa.
@@ -140,7 +143,7 @@ def _prepare(conn, body: CreativeIn) -> tuple[dict, list[int]]:
     Nostaa 422:n selkeällä suomenkielisellä viestillä, jos jokin ehto ei täyty.
     """
     # Aktiivista mainosta ei voi tallentaa jo ohittuneella Näkyy asti -päivällä: se
-    # vanhenisi heti ja muuttuisi Ei aktiiviseksi (päätös P2).
+    # vanhenisi heti ja muuttuisi Ei aktiiviseksi.
     if body.status == "active" and body.end_time:
         end = body.end_time if body.end_time.tzinfo else body.end_time.replace(tzinfo=timezone.utc)
         if end <= datetime.now(timezone.utc):
@@ -285,7 +288,8 @@ def create_creative(body: CreativeIn, conn=Depends(get_conn)):
     Runko: mainoksen tiedot + placement_ids (vähintään yksi) ja sijoitusten yhteiset
     asetukset (campaign_id, weight, priority, start_time, end_time).
     Palauttaa mainoksen listamuodossa (201). Virheet: 422 virheellinen runko, ei
-    mainospaikkoja, kampanja eri mainostajalla tai mainos on paikkaa suurempi.
+    mainospaikkoja, kampanja eri mainostajalla, paikka ei kuulu kampanjaan tai
+    mennyt päivämäärä.
     """
     _check_dates(conn, body)
     data, placement_ids = _prepare(conn, body)

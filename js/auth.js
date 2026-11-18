@@ -96,7 +96,7 @@ const Auth = (() => {
             new_password: data.new_password,
           });
         } catch (err) {
-          // Väärä nykyinen salasana (400): virheilmoitus kulmaan (päätös P7), ja
+          // Väärä nykyinen salasana (400): virheilmoitus kulmaan, ja
           // Vaihda salasana -lomake jää auki korjausta varten (return false).
           if (err.status === 400) {
             UI.toast('Nykyinen salasana on virheellinen.', 'error');
@@ -104,7 +104,7 @@ const Auth = (() => {
           }
           throw err;
         }
-        // Lomake sulkeutuu ja onnistumisilmoitus näytetään kulmassa (päätös P7)
+        // Lomake sulkeutuu ja onnistumisilmoitus näytetään kulmassa
         UI.toast('Salasanasi on vaihdettu.');
         return undefined;
       },

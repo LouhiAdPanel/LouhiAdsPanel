@@ -2,7 +2,7 @@
 
 | Tiedosto     | Sisältö |
 |--------------|---------|
-| `schema.sql` | Taulut, indeksit, triggerit ja raportointinäkymät. **Pudottaa olemassa olevat taulut** – vain kehityskäyttöön. |
+| `schema.sql` | Taulut, indeksit, triggerit ja raportointinäkymät. **Pudottaa olemassa olevat taulut**, joten sitä ei saa ajaa käytössä olevaan kantaan. Uusi, tyhjä kanta luodaan tällä. |
 | `seed.sql`   | Testidata (vain kehityskoneelle): ympäristöt, mainostajat, mainospaikat (myös demosivun ja uutiskirjeen), kampanjat ja niiden mainospaikat, mainokset, sijoitukset sekä keinotekoiset näytöt/klikkaukset 14 päivältä. Tuotantokantaan (Neon) ei ajeta: siellä raportit näyttävät vain oikeat näytöt ja klikit. |
 | `migrations/` | Muutokset olemassa olevaan kantaan ilman datan poistoa. Aja numerojärjestyksessä ne, joita kantaan ei ole vielä ajettu. |
 
@@ -40,8 +40,17 @@ Jos `psql` ei löydy, lisää PATHiin esim. `C:\Program Files\PostgreSQL\16\bin`
 psql -U postgres -d louhiads -c "SELECT name, display_status FROM v_campaign_status"
 ```
 
-Odotettu tulos: SaaShop = active, Getafix = pending, Pilvi = ended,
-Goodi = draft, Louhi = paused.
+Testidatassa on kampanja jokaisessa tilassa: `draft` (Goodi), `paused` (Louhi) ja aktiivisia
+kampanjoita, joiden näyttötila (`active`, `pending` tai `ended`) riippuu päivästä, jona
+kyselyn ajaa. Testidatan kirjautumistunnus on `admin@louhi.fi`; salasana asetetaan komennolla
+`python -m app.create_admin` (ks. `backend/README.md`).
+
+## Tuotantokanta
+
+Tuotannossa aja vain `schema.sql` (ilman `seed.sql`:ää), jolloin kanta on tyhjä. Luo sen jälkeen
+admin-tunnus (`python -m app.create_admin`) ja ympäristöt, mainospaikat ja mainostajat
+hallintapaneelissa. `schema.sql` sisältää kaikkien migraatioiden lopputuloksen, joten uuteen
+kantaan migraatioita ei tarvitse ajaa.
 
 ## Tietomalli
 
@@ -50,7 +59,7 @@ environments 1─* placements             (placements.environment -> environment
 advertisers 1─* campaigns
 advertisers 1─* creatives                (kampanja ei ole mainokselle pakollinen)
 placings = sijoitus: creative + placement (+ valinnainen campaign)
-           omalla painolla, prioriteetilla, aikataululla ja tilalla
+           omalla painoarvolla, aikataululla ja tilalla
 placings 1─* impressions 1─* clicks      (klikki kuuluu näyttöön)
 placings 1─* targeting_rules
 campaigns *─* placements                 (campaign_placements = kampanjan sallitut paikat)

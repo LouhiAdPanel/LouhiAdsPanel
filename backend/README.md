@@ -10,7 +10,7 @@ joten selain ja API ovat samassa osoitteessa.
 LouhiAds/
 ├── *.html, css/, js/          hallintapaneelin sivut (tarjoillaan tästä palvelimesta)
 ├── louhi-ads.js               mainostagi, joka upotetaan Louhen palveluihin
-├── media/                     ladatut mainoskuvat (syntyy automaattisesti, ei gitissä)
+├── media/                     vain vanhat levylle ladatut kuvat (uudet kuvat tietokannassa, ei gitissä)
 ├── db/                        schema.sql, seed.sql, migrations/
 └── backend/
     ├── requirements.txt
@@ -20,6 +20,7 @@ LouhiAds/
         ├── auth.py            salasanat (scrypt), sessiot, Admin/Editor-tarkistukset
         ├── create_admin.py    komentorivityökalu admin-tunnuksen luontiin
         ├── db.py              tietokantayhteys + CRUD-apufunktiot
+        ├── dates.py           päivämääräsääntö: aloitus- ja päättymispäivä eivät menneisyyteen
         ├── schemas.py         syötteiden validointi (Pydantic)
         ├── media.py           mainoskuvien tallennus ja JPG/PNG-tarkistus
         ├── slug.py            Placement ID:n muodostus mainospaikan nimestä
@@ -41,7 +42,7 @@ Edellytykset: PostgreSQL asennettuna ja tietokanta luotu (ks. `db/README.md`),
 Python 3.10 tai uudempi.
 
 ```powershell
-cd "K:\LAUREA\Kurssit\Digital service project\LouhiAds\backend"
+cd LouhiAds\backend
 
 # 1. Virtuaaliympäristö ja riippuvuudet
 py -m venv .venv
@@ -65,7 +66,7 @@ Avaa selaimessa http://localhost:8000 → ohjautuu kirjautumissivulle.
 ### Seuraavat kerrat
 
 ```powershell
-cd "K:\LAUREA\Kurssit\Digital service project\LouhiAds\backend"
+cd LouhiAds\backend
 .\.venv\Scripts\Activate.ps1
 uvicorn app.main:app --reload
 ```
@@ -104,7 +105,8 @@ Vaihtoehto kehityskoneella: rakenna kanta alusta (poistaa datan) komennolla
 | `MIN_PASSWORD_LENGTH` | `6` | Salasanan vähimmäispituus (backend, admin-skripti ja lomakkeet käyttävät samaa arvoa) |
 | `COOKIE_SECURE` | `false` | `true`, kun palvelin on HTTPS:n takana |
 | `MAX_UPLOAD_MB` | `5` | Mainoskuvan enimmäiskoko megatavuina (huom. lomakkeen oma esitarkistus on `js/ui.js`:ssä, `MAX_IMAGE_MB = 5`) |
-| `MEDIA_DIR` | `LouhiAds/media` | Mihin ladatut kuvat tallennetaan |
+| `MEDIA_DIR` | `LouhiAds/media` | Vanhojen, levylle tallennettujen kuvien kansio (uudet kuvat tallennetaan tietokantaan) |
+| `TRACKING_SECRET` | johdetaan `DATABASE_URL`:sta | Näyttö- ja klikkitunnisteiden allekirjoitusavain. Tuotannossa suositellaan omaa pitkää satunnaista arvoa. |
 | `FRONTEND_DIR` | `LouhiAds` | Mistä HTML-sivut tarjoillaan |
 
 `.env` sisältää salasanan – se on `.gitignore`ssa eikä sitä tarjoilla selaimelle.
@@ -113,8 +115,8 @@ Vaihtoehto kehityskoneella: rakenna kanta alusta (poistaa datan) komennolla
 
 | Rooli | Oikeudet |
 |-------|----------|
-| **Admin** | Kaikki: käyttäjät, mainostajat, mainospaikat, kampanjat, mainokset, raportit |
-| **Editor** | Kampanjat ja mainokset (luonti, muokkaus, kuvien lataus), raportit. Mainostajat ja mainospaikat vain luku. |
+| **Admin** | Kaikki: käyttäjät, ympäristöt, mainostajat, mainospaikat, kampanjat, mainokset, raportit |
+| **Editor** | Kampanjat ja mainokset (luonti, muokkaus, kuvien lataus), raportit. Mainostajat ja mainospaikat (upotuskoodeineen) vain luku. Ei Ympäristöt-, Käyttäjät- eikä Näkyvyys-näkymää. |
 
 - Ensimmäinen admin luodaan komennolla `python -m app.create_admin`. Saman komennon voi
   ajaa uudelleen, jos admin-salasana unohtuu.
@@ -143,6 +145,7 @@ Kaikki dokumentoitu ja kokeiltavissa: http://localhost:8000/docs
 | POST/PUT/DELETE | `/api/environments[/{id}]` | Admin | Ympäristön luonti / muokkaus / poisto (ei, jos paikkoja) |
 | GET | `/api/placements`, `/api/placements/{id}` | kirjautunut | Mainospaikat |
 | POST/PUT/DELETE | `/api/placements[/{id}]` | Admin | Mainospaikan luonti / muokkaus / poisto |
+| GET | `/api/placements/{id}/visibility` | Admin | Paikan mainosten näkymistodennäköisyydet (Näkyvyys) |
 | GET/POST | `/api/campaigns?status=&advertiser_id=&q=` | kirjautunut | Kampanjat (suodattimet) / luonti |
 | GET/PUT/DELETE | `/api/campaigns/{id}` | kirjautunut | Yksi kampanja (sis. `placement_ids`) |
 | PATCH | `/api/campaigns/{id}/status` | kirjautunut | Aktivoi / pauseta / arkistoi |
@@ -150,8 +153,8 @@ Kaikki dokumentoitu ja kokeiltavissa: http://localhost:8000/docs
 | GET/POST | `/api/creatives?campaign_id=&unassigned=` | kirjautunut | Mainokset / luonti (kampanja valinnainen) |
 | GET/PUT/DELETE | `/api/creatives/{id}` | kirjautunut | Yksi mainos |
 | GET | `/api/stats/summary` | kirjautunut | Dashboardin luvut tältä päivältä |
-| GET | `/api/stats/report?group_by=&start=&end=&advertiser_id=&campaign_id=` | kirjautunut | Raportti (`advertiser`, `campaign`, `creative`, `placement`, `day`; oletus 30 pv) |
-| GET | `/api/stats/report.csv` | kirjautunut | Sama CSV:nä (Excel-yhteensopiva) |
+| GET | `/api/stats/report?group_by=&start=&end=&advertiser_id=&campaign_id=` | kirjautunut | Raportti (`advertiser`, `campaign`, `creative`, `placement`, `day`; ilman päiviä 30 pv) |
+| GET | `/api/stats/report.csv` | kirjautunut | Sama CSV:nä (suomenkielinen Excel: puolipiste, desimaalipilkku) |
 | GET | `/api/v1/ad?placement=<code>` | julkinen | Mainostagi: arvottu mainos tai 204 (ei vielä kirjaa näyttöä) |
 | POST | `/api/v1/view?t=<token>` | julkinen | Näytön kirjaus, kun mainos on näkynyt (50 % / 1 s) |
 | GET | `/api/v1/click/{impression_id}` | julkinen | Klikkaus näytölle + 302-ohjaus UTM-parametreilla |
@@ -161,7 +164,8 @@ Kaikki dokumentoitu ja kokeiltavissa: http://localhost:8000/docs
 | GET | `/api/health` | julkinen | `{"status":"ok"}` = tietokantayhteys toimii |
 
 Virheet palautetaan suomeksi: 401 (ei kirjautunut), 403 (ei oikeuksia), 404 (ei löydy),
-409 (esim. mainostajalla on kampanjoita), 413 (kuva liian suuri), 422 (virheellinen syöte),
+409 (esim. mainostajalla on kampanjoita), 413 (kuva liian suuri), 422 (virheellinen syöte,
+esim. mennyt päivämäärä),
 429 (liian monta kirjautumisyritystä).
 
 ## Toiminnallisuuksien yksityiskohdat
@@ -185,9 +189,18 @@ Virheet palautetaan suomeksi: 401 (ei kirjautunut), 403 (ei oikeuksia), 404 (ei 
 
 ### Mainos ilman kampanjaa
 - Kampanja on valinnainen: mainoksen voi lisätä ensin ja liittää kampanjaan myöhemmin.
-  Mainoksia ilman kampanjaa ei näytetä sivustoilla.
+  Mainos ilman kampanjaa näkyy oman aikataulunsa (Näkyy alkaen / Näkyy asti) mukaan.
 - `GET /api/creatives?unassigned=true` listaa mainokset ilman kampanjaa.
 - Kampanjan poisto ei poista sen mainoksia, vaan ne jäävät ilman kampanjaa.
+
+### Päivämäärät ja vanhentuminen
+- Kampanjan ja mainoksen uusi tai muutettu aloitus- tai päättymispäivä ei voi olla menneisyydessä
+  (tämä päivä käy, vertailu Suomen ajassa). Jo tallennettu mennyt päivä saa jäädä ennalleen,
+  jotta käynnissä olevaa tai päättynyttä kampanjaa voi muokata (`app/dates.py`).
+- Aktiivisella kampanjalla on oltava aloitus- ja päättymispäivä. Kampanjan näyttötila
+  (Odottaa alkamista / Päättynyt) lasketaan päivistä näkymässä `v_campaign_status`.
+- Kun mainoksen kaikkien sijoitusten Näkyy asti -päivä on ohitettu, mainos muuttuu
+  Ei aktiiviseksi. Tarkistus tehdään aina mainoksia haettaessa, joten ajastettua tehtävää ei tarvita.
 
 ### Placement ID
 - Muodostetaan automaattisesti mainospaikan nimestä (`slug.py`):
@@ -243,7 +256,11 @@ Samat todennäköisyydet näkyvät adminille Mainospaikat-sivun Näkyvyys-näkym
 | Muutokset eivät näy selaimessa | Käynnistä palvelin uudelleen ja paina selaimessa Ctrl+F5. |
 | Kirjautuminen lukittui | 5 väärää yritystä → odota 15 min tai käynnistä palvelin uudelleen. |
 
-## Julkaisu: Render + Neon (testiympäristö)
+## Projektin testiympäristö: Render + Neon
+
+Projektin aikana sovellus pyöri projektiryhmän ilmaisilla Render- ja Neon-tileillä.
+Ympäristö ei siirry koodin mukana, ja se suljetaan luovutuksen jälkeen sovittuna päivänä.
+Ohjeet alla ovat mallina vastaavan pilviympäristön pystyttämiseen.
 
 | Osa | Palvelu | Huom. |
 |-----|---------|-------|
@@ -254,7 +271,8 @@ Samat todennäköisyydet näkyvät adminille Mainospaikat-sivun Näkyvyys-näkym
 Asetukset ovat tiedostossa `render.yaml`. Käynnistyskomennon `--proxy-headers` on tärkeä:
 Render purkaa HTTPS:n, ja ilman sitä mainostagin kuva- ja klikkiosoitteet olisivat `http://`.
 
-**Uusi versio julkaistaan pushaamalla `main`-haaraan** – Render julkaisee automaattisesti.
+Uusi versio julkaistaan pushaamalla `main`-haaraan (Renderin automaattinen julkaisu) tai
+käynnistämällä julkaisu Renderin hallintapaneelista.
 
 **Tietokantamuutokset Neoniin** ajetaan omalta koneelta Neonin yhteysosoitteella:
 
@@ -264,8 +282,14 @@ psql "postgresql://...neon.tech/neondb?sslmode=require" -f db/migrations/00X_nim
 
 ## Tuotantoon vietäessä
 
+- Asennus Louhen omalle palvelimelle (Python 3.10+ ja PostgreSQL); tietokanta luodaan
+  `db/schema.sql`-tiedostolla ilman testidataa (ks. `db/README.md`)
 - HTTPS ja `COOKIE_SECURE=true`
+- `DATABASE_URL` ja `TRACKING_SECRET` ympäristömuuttujiin (ei koodiin eikä versionhallintaan)
 - `CORS_ORIGINS` rajattuna Louhen omiin osoitteisiin
 - `/docs` tarvittaessa pois käytöstä
-- `uvicorn` ilman `--reload`-valitsinta
-- `media/`-kansio pysyvälle levylle tai objektitallennukseen (määrittely luku 17)
+- `uvicorn` ilman `--reload`-valitsinta, tarvittaessa useampi prosessi (`--workers`)
+- Ensimmäinen admin: `python -m app.create_admin`
+- Mainoskuvat ovat tietokannassa, joten tietokannan varmuuskopiointi kattaa myös kuvat
+- Kirjautumisyritysten rajoitus on palvelinprosessin muistissa; useammalla prosessilla tai
+  palvelimella se kannattaa siirtää yhteiseen tallennukseen (esim. tietokanta tai Redis)

@@ -1,23 +1,26 @@
 # Louhi Ads
 
 Louhen sisäinen mainonnanhallintajärjestelmä. Sillä hallitaan Louhen omissa digitaalisissa
-ympäristöissä (Konsoli, louhi.fi, Domain Control Panel, tukiportaali, cPanel) näytettäviä
-konsernin sisäisiä mainoksia: SaaShop, Getafix, Pilvi, Goodi ja Louhi.
+ympäristöissä (esim. Louhi Konsoli, louhi.fi, Domain Control Panel, tukiportaali, cPanel ja
+uutiskirje) näytettäviä konsernin sisäisiä mainoksia: SaaShop, Getafix, Pilvi, Goodi ja Louhi.
 
 Järjestelmä koostuu kolmesta osasta:
 
 ```
 Louhen sivusto  ──  louhi-ads.js (mainostagi)  ──►  Backend / API  ◄──  Hallintapaneeli
-                                                        │
-                                                    PostgreSQL
+Uutiskirje      ──  kuva + linkki             ──►        │
+                                                     PostgreSQL
 ```
+
+Sovellus on toteutettu Laurea-ammattikorkeakoulun Digital service project -opintojaksolla
+prototyyppinä Louhi Net Oy:lle.
 
 ## Tekniikka
 
 | Osa | Tekniikka |
 |-----|-----------|
 | Hallintapaneeli | HTML, CSS, JavaScript (ei kehyksiä) |
-| Backend | Python, FastAPI |
+| Backend | Python 3.10+, FastAPI |
 | Tietokanta | PostgreSQL |
 | Mainostagi | `louhi-ads.js` (kevyt, ei riippuvuuksia) |
 
@@ -30,32 +33,38 @@ LouhiAds/
 ├── advertisers.html         mainostajat
 ├── campaigns.html           kampanjat
 ├── creatives.html           mainokset ja kuvien lataus
-├── placements.html          mainospaikat ja upotuskoodit
-├── reporting.html           raportointi ja CSV-vienti
-├── users.html               käyttäjähallinta (Admin)
+├── placements.html          mainospaikat, upotuskoodit ja Näkyvyys (Admin)
+├── reporting.html           raportointi ja CSV-lataus
 ├── environments.html        ympäristöt (Admin)
-├── ad-demo.html             mainostagin testisivu
-├── demopage/               esimerkkiasiakkaan sivusto, jossa 3 mainospaikkaa (julkinen)
-├── newsletter/             uutiskirjedemo, jossa 2 sähköpostin mainospaikkaa (julkinen)
+├── users.html               käyttäjähallinta (Admin)
+├── ad-demo.html             mainostagin testisivu (julkinen)
+├── index.html               ohjaa etusivulle
+├── demopage/                esimerkkiasiakkaan sivusto, jossa 3 mainospaikkaa (julkinen)
+├── newsletter/              uutiskirjedemo, jossa 2 sähköpostin mainospaikkaa (julkinen)
 ├── louhi-ads.js             mainostagi
 ├── css/style.css            tyylit
 ├── js/
 │   ├── api.js               yhteys backendiin
-│   ├── ui.js                yhteiset osat: lomakeikkuna, ilmoitukset, muotoilu
-│   ├── auth.js              kirjautunut käyttäjä, roolit, uloskirjautuminen
+│   ├── ui.js                yhteiset osat: lomakeikkuna, ilmoitukset, sivutus, muotoilu
+│   ├── auth.js              kirjautunut käyttäjä, roolit, salasanan vaihto, uloskirjautuminen
+│   ├── password-toggle.js   salasanakenttien näytä/piilota-painike
+│   ├── datepicker.js        suomenkielinen päivämäärävalitsin
 │   └── <sivu>.js            sivukohtainen logiikka
-├── media/                   ladatut mainoskuvat (syntyy automaattisesti, ei gitissä)
 ├── backend/                 palvelin → ks. backend/README.md
-└── db/                      tietokantaskeema, testidata, migraatiot → ks. db/README.md
+├── db/                      tietokantaskeema, testidata, migraatiot → ks. db/README.md
+└── render.yaml              testiympäristön julkaisuasetukset (Render)
 ```
+
+Mainoskuvat tallennetaan tietokantaan (taulu `media_files`). Kansio `media/` on vain vanhoja,
+levylle ladattuja kuvia varten, eikä se ole versionhallinnassa.
 
 ## Pikaopas
 
-Ensimmäinen asennus on kuvattu tarkemmin tiedostoissa `db/README.md` (tietokanta) ja
-`backend/README.md` (palvelin). Kun asennus on tehty, käynnistys:
+Ensimmäinen asennus on kuvattu tiedostoissa `db/README.md` (tietokanta) ja
+`backend/README.md` (palvelin). Kun asennus on tehty, käynnistys LouhiAds-kansiossa:
 
 ```powershell
-cd "K:\LAUREA\Kurssit\Digital service project\LouhiAds\backend"
+cd backend
 .\.venv\Scripts\Activate.ps1
 uvicorn app.main:app --reload
 ```
@@ -66,52 +75,52 @@ Avaa http://localhost:8000 ja kirjaudu sisään.
 
 | Rooli | Voi |
 |-------|-----|
-| **Admin** | Kaiken: käyttäjät, mainostajat, mainospaikat, kampanjat, mainokset, raportit |
-| **Editor** | Luoda ja muokata kampanjoita ja mainoksia, katsoa raportteja |
+| **Admin** | Kaiken: käyttäjät, ympäristöt, mainostajat, mainospaikat (myös Näkyvyys), kampanjat, mainokset, raportit |
+| **Editor** | Luoda ja muokata kampanjoita ja mainoksia, katsoa raportteja. Mainostajat ja mainospaikat (upotuskoodeineen) vain luku. |
 
-## Mainostagi
+## Mainostagi ja uutiskirje
 
 Mainospaikka lisätään Louhen sivulle näin (valmis koodi löytyy Mainospaikat-sivun
-**Upotuskoodi**-painikkeesta):
+**Upotuskoodi**-painikkeesta, ja siinä on palvelimen oikea osoite):
 
 ```html
 <div class="louhi-ad" data-placement="louhi_konsoli_paabanneri"></div>
-<script src="http://localhost:8000/louhi-ads.js" async></script>
+<script src="https://PALVELIN/louhi-ads.js" async></script>
 ```
 
-Tagi hakee mainospaikalle sopivan mainoksen ja näyttää sen. Näyttö kirjataan vasta, kun vähintään
-puolet mainoksesta on ollut näkyvissä sekunnin. Klikkaus kirjataan
+Tagi hakee mainospaikalle sopivan mainoksen ja näyttää sen skaalattuna paikan kokoon. Näyttö
+kirjataan vasta, kun vähintään puolet mainoksesta on ollut näkyvissä sekunnin. Klikkaus kirjataan,
 ja käyttäjä ohjataan kohdesivulle UTM-parametreilla. Jos mainosta ei ole tai palvelin ei vastaa,
 mainospaikka jää tyhjäksi eikä sivu hidastu. Testaus: http://localhost:8000/ad-demo.html
 
-**Demosivusto** (`demopage/`, http://localhost:8000/demopage/) on esimerkkiasiakkaan verkkosivu,
-jolle on upotettu kolme mainospaikkaa: `louhi_demo_hero` (300 × 600), `louhi_demo_banneri`
-(728 × 90) ja `louhi_demo_sivun_loppu` (300 × 250). Mainospaikat luodaan migraatiolla
-`db/migrations/004_demopage_placements.sql`. Mainos ilmestyy paikkaan, kun aktiivinen mainos
+**Uutiskirjeessä** ei voi käyttää JavaScriptiä, joten mainos on kuva linkin sisällä
+(`/api/v1/email/...`). Sähköpostiympäristön mainospaikoille Upotuskoodi-painike antaa tämän
+muodon valmiina. Uutiskirjedemo: http://localhost:8000/newsletter/
+
+**Demosivusto** (http://localhost:8000/demopage/) on esimerkkiasiakkaan verkkosivu, jolle on
+upotettu kolme mainospaikkaa: `louhi_demo_hero` (300 × 600), `louhi_demo_banneri` (728 × 90) ja
+`louhi_demo_sivun_loppu` (300 × 250). Mainos ilmestyy paikkaan, kun aktiivinen mainos
 sijoitetaan siihen Mainokset-sivulla. Tyhjä paikka näkyy katkoviivoitettuna.
 
-**Uutiskirjedemo** (`newsletter/`, http://localhost:8000/newsletter/) näyttää, miten mainokset näkyvät
-sähköpostiuutiskirjeessä. Uutiskirjeessä ei voi käyttää JavaScriptiä, joten mainos on kuva linkin
-sisällä (`/api/v1/email/...`). Mainospaikat `louhi_uutiskirje_yla` (600 × 200) ja
-`louhi_uutiskirje_sisalto` (600 × 300) kuuluvat ympäristöön Uutiskirje (migraatio `009_environments.sql`).
-Valmis upotuskoodi löytyy Mainospaikat-sivun Upotuskoodi-painikkeesta.
+## Keskeiset käsitteet
 
-**Ympäristöt** (Admin): Louhen palvelut ja kanavat, joihin mainospaikkoja luodaan. Kanava `web`
-käyttää mainostagia, `email` sähköpostin kuva+linkki-upotusta. Ympäristöä, jossa on mainospaikkoja,
-ei voi poistaa. Listasivut (mainokset, kampanjat, mainospaikat, ympäristöt) näyttävät 20 riviä sivulla.
+- **Ympäristö** (Admin): Louhen palvelu tai kanava, johon mainospaikkoja luodaan. Kanava `web`
+  käyttää mainostagia, `email` uutiskirjeen kuva ja linkki -upotusta. Ympäristöä, jossa on
+  mainospaikkoja, ei voi poistaa.
+- **Mainospaikka:** kohta sivustolla tai uutiskirjeessä. Tunnus (Placement ID) muodostuu nimestä
+  ja lukitaan luonnin jälkeen.
+- **Sijoitus** (taulu `placings`): mainos tietyssä mainospaikassa omalla painoarvolla (0–100),
+  aikataululla ja valinnaisella kampanjalla. Mainos kuuluu mainostajalle, ja kampanja on
+  valinnainen. Mainoksen osuus paikan näytöistä = painoarvo / paikan painoarvojen summa.
+- **Kampanja:** mainostajan mainosten ryhmä, jolla on aikataulu ja sallitut mainospaikat.
+  Kampanjan mainos näkyy vain kampanjan ollessa käynnissä ja sen sallituissa paikoissa.
+- **Päivämäärät:** kampanjan ja mainoksen uusi tai muutettu aloitus- tai päättymispäivä ei voi
+  olla menneisyydessä. Kun mainoksen Näkyy asti -päivä ohittuu, mainos muuttuu Ei aktiiviseksi.
+- **Poisto:** poiston jälkeen ilmoituksessa on 10 sekunnin ajan Kumoa-painike.
 
-**Sijoitukset (placings):** mainos kuuluu mainostajalle, ja kampanja on valinnainen. Mainosta
-lisättäessä valitaan mainospaikat (vähintään yksi); jokaisesta tulee sijoitus, jolla on oma painoarvo
-(0–100), aikataulu ja valinnainen kampanja (taulu `placings`, migraatio `006_placings.sql`).
-Valittavissa ovat aktiiviset paikat (kampanjan mainokselle kampanjan paikat). Kuvan koko voi poiketa paikasta.
-Mainostagi skaalaa kuvan mittasuhteet säilyttäen mainospaikan kokoon. Näyttö viittaa sijoitukseen
-ja klikki näyttöön.
+Listasivut näyttävät 20 riviä sivulla.
 
-**Kampanjan mainospaikat:** kampanjalle valitaan sallitut mainospaikat (taulu `campaign_placements`,
-migraatio `007_campaign_placements.sql`). Kampanjan mainoksen voi sijoittaa vain näihin paikkoihin,
-ja jakelu näyttää kampanjan mainoksen vain kampanjan aktiivisena aikana ja sen sallituissa paikoissa.
-
-## Tilanne: MVP (tekninen määrittely, luku 20)
+## Toteutetut ominaisuudet (tekninen määrittely, luku 20)
 
 | # | Ominaisuus | Tila |
 |---|-----------|------|
@@ -123,29 +132,30 @@ ja jakelu näyttää kampanjan mainoksen vain kampanjan aktiivisena aikana ja se
 | 6 | Painotettu mainosten näyttö | ✅ |
 | 7 | Kuva + URL -mainokset | ✅ |
 | 8 | JavaScript-mainostagi | ✅ |
-| 9 | Impression-seuranta | ✅ |
+| 9 | Impression-seuranta (näkyvyysperusteinen) | ✅ |
 | 10 | Click-seuranta (+ UTM) | ✅ |
 | 11 | CTR | ✅ |
 | 12 | Perusraportointi | ✅ |
 | 13 | CSV-export | ✅ |
 | 14 | Admin- ja Editor-käyttäjät | ✅ |
 
-**Ei vielä toteutettu:**
-- Kohdennussäännöt (luku 9): `targeting_rules`-taulu on valmiina, mutta sääntöjä ei vielä
+Lisäksi: ympäristöjen hallinta, uutiskirjeen mainokset, Näkyvyys-näkymä (mainosten
+näkymistodennäköisyydet) ja suomenkielinen päivämäärävalitsin.
+
+**Jatkokehitys (ei toteutettu):**
+- Kohdennussäännöt (määrittely luku 9): `targeting_rules`-taulu on valmiina, mutta sääntöjä ei
   käytetä mainoksen valinnassa eikä niitä voi muokata paneelissa.
+- Listojen järjestäminen sarakkeen mukaan ja mainosten hakutoiminto.
+- Erillinen käyttöohje.
 - Automaattiset testit.
 - Tuotantoympäristö (ks. `backend/README.md` → Tuotantoon vietäessä).
 
-## Sprint-katselmoinnit
-
-Hyväksymiskriteerien tarkistukset löytyvät projektin `sprint/`-dokumenteista:
-- Mainoksen lataus
-- Mainospaikan luonti
-
 ## Dokumentaatio
+
+Projektin raportit (mm. tiedostokuvaus ja heuristiikkaraportti) luovutetaan erikseen.
 
 | Tiedosto | Sisältö |
 |----------|---------|
-| `backend/README.md` | Palvelimen asennus, asetukset, rajapinnat, vianetsintä |
+| `backend/README.md` | Palvelimen asennus, asetukset, rajapinnat, vianetsintä, tuotantoon vienti |
 | `db/README.md` | Tietokannan luonti, tietomalli, migraatiot |
 | http://localhost:8000/docs | Rajapintojen interaktiivinen dokumentaatio (palvelimen ollessa käynnissä) |

@@ -41,7 +41,7 @@
   const pad = (n) => String(n).padStart(2, '0');
   const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-  /* ---------- Ajanjakso (tiimin päätös P6) ----------
+  /* ---------- Ajanjakso ----------
      Oletuksena kuluva kuukausi: kuun 1. päivästä tähän päivään. Pikavalinnat: Tämä kuukausi,
      Edellinen kuukausi ja Valitse ajanjakso. Valikon oikealla puolella ovat aloitus- ja
      loppupäivä, jotka näyttävät aina valitun jakson. Pikavalinta täyttää päivät; kun käyttäjä

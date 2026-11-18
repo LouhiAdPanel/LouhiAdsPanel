@@ -8,7 +8,7 @@ SET client_encoding = 'UTF8';
 -- Käyttäjä. Salasana asetetaan myöhemmin backendin kautta
 -- ('!' = kirjautuminen estetty, kunnes oikea hash on asetettu).
 INSERT INTO users (email, name, password_hash, role) VALUES
-  ('johnny@louhi.fi', 'Johnny Kuoppala', '!', 'admin');
+  ('admin@louhi.fi', 'Louhi Admin', '!', 'admin');
 
 -- Mainostajat (luku 5)
 INSERT INTO advertisers (name, website_url, status) VALUES

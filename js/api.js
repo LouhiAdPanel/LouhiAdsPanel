@@ -4,8 +4,12 @@
    Sivut tarjoillaan samasta palvelimesta kuin API, joten osoite
    on suhteellinen (esim. /api/campaigns).
 
-   Käytetään: kaikilla hallintapaneelin sivuilla (dashboard, campaigns,
-   creatives, placements, advertisers, reporting, users) sekä login.html.
+   Käytetään: kaikilla hallintapaneelin sivuilla (dashboard, advertisers, campaigns,
+   creatives, placements, environments, reporting, users) sekä login.html.
+
+   Lisäksi: tietojen haku (GET) yritetään uudelleen 2 ja 5 sekunnin kuluttua, jos palvelin
+   ei vastaa (esim. käynnistyy vasta), ja kumottavissa olevat poistot (pendingDeletes)
+   jätetään listahauista pois kumoamisajan ajan (ks. UI.deleteWithUndo).
    Riippuvuudet: ei muita omia tiedostoja. Ladattava ENNEN ui.js-, auth.js-
    ja sivukohtaisia skriptejä, koska ne käyttävät globaalia Api-oliota.
 
@@ -37,7 +41,7 @@ class ApiError extends Error {
 function formatApiError(data, status) {
   if (!data || !data.detail) {
     // Renderin ilmaispalvelu nukahtaa 15 min käyttämättömyyden jälkeen, ja herääminen kestää
-    // noin minuutin. Viesti kertoo käyttäjälle, mitä tehdä (testauksen havainto V6).
+    // noin minuutin. Viesti kertoo käyttäjälle, mitä tehdä (testauksessa havaittu ongelma).
     if (status === 0) return 'Palvelin ei vastannut. Se voi olla vasta käynnistymässä – odota hetki ja yritä uudelleen.';
     return `Palvelinvirhe (${status}).`;
   }

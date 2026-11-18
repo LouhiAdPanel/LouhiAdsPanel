@@ -11,8 +11,8 @@ Oikeudet: main.py liittää tämän routerin get_current_user-riippuvuudella, jo
 kaikki kutsut vaativat kirjautumisen. Kirjoittavat operaatiot vaativat lisäksi
 admin-roolin (dependencies=[Depends(require_admin)] reittikohtaisesti).
 
-Liittyy: mainostajalla on kampanjoita (campaigns.advertiser_id), ja kampanjoilla
-mainoksia (creatives). Lomakkeen kentät validoidaan schemas.AdvertiserIn-mallilla.
+Liittyy: mainostajalla on kampanjoita (campaigns.advertiser_id) ja mainoksia
+(creatives.advertiser_id); kampanja on mainokselle valinnainen. Lomakkeen kentät validoidaan schemas.AdvertiserIn-mallilla.
 """
 from fastapi import APIRouter, Depends, HTTPException
 

@@ -11,7 +11,10 @@
    - PUT    /api/advertisers/{id}   päivitys                 (vain admin)
    - DELETE /api/advertisers/{id}   poisto                   (vain admin)
 
-   Admin-rajaus: painikkeilla on luokka .admin-only, joka piilottaa ne editorilta (ks. auth.js).
+   Poiston jälkeen ilmoituksessa on 10 sekunnin ajan Kumoa-painike (UI.deleteWithUndo).
+
+   Admin-rajaus: Uusi mainostaja -painikkeella ja Toiminnot-sarakkeella on luokka .admin-only,
+   joka piilottaa ne editorilta (ks. auth.js), jolloin editorille ei jää tyhjää saraketta.
    Varsinainen tarkistus tehdään aina palvelimella (403), piilotus on vain käytettävyyttä.
 
    Koko tiedosto on kääritty heti suoritettavaan funktioon (IIFE), jotta muuttujat
@@ -90,7 +93,7 @@
         load();
       },
       // Uudella mainostajalla ei ole Poista-painiketta (onDelete = null).
-      // Vahvistus kertoo poistettavan mainostajan nimen (päätös P7).
+      // Vahvistus kertoo poistettavan mainostajan nimen.
       deleteLabel: 'Poista mainostaja',
       deleteConfirm: advertiser ? `Haluatko varmasti poistaa mainostajan "${advertiser.name}"?` : '',
       onDelete: isNew ? null : async () => {

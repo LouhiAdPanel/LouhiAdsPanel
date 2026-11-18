@@ -4,7 +4,7 @@
 - Sessio: satunnainen tunniste HttpOnly-evästeessä. Tietokantaan tallennetaan
   vain tunnisteen SHA-256-tiiviste, joten vuotanut tietokanta ei paljasta sessioita.
 - Roolit (määrittely luku 14):
-    admin  – kaikki, myös käyttäjät, mainostajat ja mainospaikat
+    admin  – kaikki, myös käyttäjät, mainostajat, mainospaikat ja ympäristöt
     editor – kampanjat, mainokset ja raportit
 
 Liittymät: routers/auth.py (kirjautuminen/uloskirjautuminen) käyttää

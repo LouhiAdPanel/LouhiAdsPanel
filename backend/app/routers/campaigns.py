@@ -16,6 +16,9 @@ ja sen kampanja valitaan mainoslomakkeella (routers/creatives.py). Kampanjalle v
 sallitut mainospaikat (campaign_placements); kampanjan sijoitukset voivat olla vain niissä.
 Jakelu (serving.py) näyttää kampanjan sijoituksia vain, kun kampanja on aktiivinen ja
 käynnissä ja paikka on kampanjan sallittu paikka.
+
+Päivämäärät: aloitus- ja päättymispäivä eivät voi olla menneisyydessä, mutta jo tallennettu
+mennyt päivä saa jäädä ennalleen (käynnissä olevan kampanjan muokkaus), ks. dates.py.
 """
 from typing import Literal
 
