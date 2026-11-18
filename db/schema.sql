@@ -62,8 +62,9 @@ CREATE INDEX idx_sessions_user ON sessions(user_id);
 --   advertisers 1─* campaigns           (kampanja kuuluu mainostajalle)
 --   campaigns *─* placements            (kampanjan sallitut mainospaikat)
 --   advertisers 1─* creatives           (mainos kuuluu mainostajalle, kampanja EI pakollinen)
---   placings = sijoitus: mainos tietyssä mainospaikassa omalla painolla,
---             prioriteetilla, aikataululla ja tilalla. Kampanja on valinnainen.
+--   placings = sijoitus: mainos tietyssä mainospaikassa omalla painoarvolla,
+--             aikataululla ja tilalla. Kampanja on valinnainen.
+--   environments 1─* placements         (mainospaikan ympäristö, viittaa nimeen)
 --   placings 1─* impressions 1─* clicks  (klikki kuuluu siihen näyttöön, jota klikattiin)
 -- Yhdistelmäavaimet (id, advertiser_id) varmistavat, että sijoituksen mainos ja
 -- kampanja kuuluvat samalle mainostajalle kuin sijoitus.
