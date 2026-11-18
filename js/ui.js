@@ -71,6 +71,9 @@ const UI = (() => {
 
   /** 'YYYY-MM-DD' -> ISO-aikaleima. endOfDay=true -> klo 23:59:59
       (kampanjan loppupäivä on näin voimassa koko päivän). Palauttaa null, jos tyhjä. */
+  /** Tämä päivä lomakkeen päivämäärämuodossa (vvvv-kk-pp, paikallinen aika). */
+  const todayInput = () => isoToDateInput(new Date().toISOString());
+
   const dateInputToIso = (value, endOfDay = false) => {
     if (!value) return null;
     // Osat erikseen: new Date('2026-03-01') tulkittaisiin UTC-keskiyöksi, ei paikalliseksi
@@ -1026,7 +1029,7 @@ const UI = (() => {
   };
 
   return {
-    esc, fmtInt, fmtPct, fmtDate, fmtRange, isoToDateInput, dateInputToIso,
+    esc, fmtInt, fmtPct, fmtDate, fmtRange, isoToDateInput, dateInputToIso, todayInput,
     STATUS, pill, tableMessage, toast, deleteWithUndo, openForm, openInfo, choiceDialog, confirm: confirmDialog,
     notice: noticeDialog, setMultiselectOptions, pager, PAGE_SIZE,
   };

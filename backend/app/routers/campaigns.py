@@ -21,6 +21,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from ..dates import check_not_past
 from ..db import delete_row, get_conn, insert_row, update_row
 from ..schemas import CampaignIn, CampaignStatusIn
 
@@ -142,6 +143,15 @@ def _set_creatives(conn, campaign_id: int, advertiser_id: int, creative_ids: lis
             {"adv": advertiser_id, "cr": creative_id, "camp": campaign_id, "places": places})
 
 
+def _check_dates(conn, body: CampaignIn, old=None):
+    """Aloitus- ja päättymispäivä eivät voi olla menneisyydessä (ks. dates.py).
+    Muokattaessa jo tallennettu päivä saa jäädä ennalleen. Virhe: 422."""
+    check_not_past(conn, body.start_time, old["start_time"] if old else None,
+                   "Aloituspäivä ei voi olla menneisyydessä. Valitse tämä päivä tai tuleva päivä.")
+    check_not_past(conn, body.end_time, old["end_time"] if old else None,
+                   "Päättymispäivä ei voi olla menneisyydessä. Valitse tämä päivä tai tuleva päivä.")
+
+
 def _get_or_404(conn, campaign_id: int):
     """Hakee yhden kampanjan samassa muodossa kuin listassa, tai nostaa 404:n."""
     rows = _fetch(conn, id=campaign_id)
@@ -182,6 +192,7 @@ def create_campaign(body: CampaignIn, conn=Depends(get_conn)):
     Virheet: 422 virheellinen runko (esim. aktiivinen ilman päivämääriä, CampaignIn),
     409 olematon mainostaja tai mainospaikka.
     """
+    _check_dates(conn, body)
     row = insert_row(conn, "campaigns", body.model_dump(exclude={"placement_ids", "creative_ids"}))
     _set_placements(conn, row["id"], body.placement_ids)
     _set_creatives(conn, row["id"], body.advertiser_id, body.creative_ids)
@@ -197,9 +208,11 @@ def update_campaign(campaign_id: int, body: CampaignIn, conn=Depends(get_conn)):
     Palauttaa päivitetyn kampanjan. Virheet: 404 ei löydy, 409 mainostajan vaihto
     estetty, muuten kuten luonnissa.
     """
-    old = conn.execute("SELECT advertiser_id FROM campaigns WHERE id = %s", [campaign_id]).fetchone()
+    old = conn.execute("SELECT advertiser_id, start_time, end_time FROM campaigns WHERE id = %s",
+                       [campaign_id]).fetchone()
     if not old:
         raise HTTPException(404, "Kampanjaa ei löytynyt.")
+    _check_dates(conn, body, old)
     if old["advertiser_id"] != body.advertiser_id and conn.execute(
             "SELECT 1 FROM placings WHERE campaign_id = %s LIMIT 1", [campaign_id]).fetchone():
         raise HTTPException(409, "Kampanjalla on mainoksia, joten mainostajaa ei voi vaihtaa. "

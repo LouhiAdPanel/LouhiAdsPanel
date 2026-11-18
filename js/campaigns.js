@@ -221,14 +221,19 @@
       title: isNew ? 'Luo uusi kampanja' : 'Muokkaa kampanjaa',
       fields: fields(),
       // Aktiivisella kampanjalla on oltava molemmat päivät (palvelin vaatii saman), ja
-      // päättymispäivä ei voi olla ennen aloituspäivää.
+      // päättymispäivä ei voi olla ennen aloituspäivää. Uusi tai muutettu päivä ei voi olla
+      // menneisyydessä (tämä päivä käy); jo tallennettu mennyt päivä saa jäädä ennalleen,
+      // jotta käynnissä olevaa tai päättynyttä kampanjaa voi yhä muokata (palvelin: dates.py).
       validate: (data) => {
         const active = data.status === 'active';
+        const past = (name) => data[name] && data[name] < UI.todayInput() && data[name] !== values[name];
         return {
-          start_date: active && !data.start_date ? 'Aktiiviselle kampanjalle on annettava aloituspäivä.' : '',
+          start_date: active && !data.start_date ? 'Aktiiviselle kampanjalle on annettava aloituspäivä.'
+            : past('start_date') ? 'Aloituspäivä ei voi olla menneisyydessä. Valitse tämä päivä tai tuleva päivä.' : '',
           end_date: active && !data.end_date ? 'Aktiiviselle kampanjalle on annettava päättymispäivä.'
-            : data.start_date && data.end_date && data.end_date < data.start_date
-              ? 'Päättymispäivä ei voi olla ennen aloituspäivää.' : '',
+            : past('end_date') ? 'Päättymispäivä ei voi olla menneisyydessä. Valitse tämä päivä tai tuleva päivä.'
+              : data.start_date && data.end_date && data.end_date < data.start_date
+                ? 'Päättymispäivä ei voi olla ennen aloituspäivää.' : '',
         };
       },
       values,

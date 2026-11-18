@@ -382,14 +382,23 @@
       values,
       submitLabel: 'Esikatsele',
       busyLabel: 'Esikatselu…',
-      // Päivämääräpari: näkyvyys ei voi päättyä ennen kuin se alkaa. Aktiivisella mainoksella
-      // Näkyy asti -päivä ei voi olla mennyt (mainos vanhenisi heti, päätös P2).
-      validate: (data) => ({
-        end_date: data.start_date && data.end_date && data.end_date < data.start_date
-          ? 'Päättymispäivä ei voi olla ennen alkamispäivää.'
-          : data.status === 'active' && data.end_date && data.end_date < todayInput()
-            ? 'Päivä on jo ohittunut. Valitse tuleva päivä, jätä kenttä tyhjäksi tai valitse tilaksi Ei aktiivinen.' : '',
-      }),
+      // Päivämääräpari: näkyvyys ei voi päättyä ennen kuin se alkaa. Uusi tai muutettu päivä ei
+      // voi olla menneisyydessä (tämä päivä käy); jo tallennettu mennyt päivä saa jäädä
+      // ennalleen (palvelin: dates.py). Aktiivisella mainoksella Näkyy asti -päivä ei voi olla
+      // mennyt (mainos vanhenisi heti, päätös P2).
+      validate: (data) => {
+        const past = (name) => data[name] && data[name] < todayInput() && data[name] !== values[name];
+        return {
+          start_date: past('start_date')
+            ? 'Näkyy alkaen -päivä ei voi olla menneisyydessä. Valitse tämä päivä, tuleva päivä tai jätä kenttä tyhjäksi.' : '',
+          end_date: past('end_date')
+            ? 'Näkyy asti -päivä ei voi olla menneisyydessä. Valitse tämä päivä, tuleva päivä tai jätä kenttä tyhjäksi.'
+            : data.start_date && data.end_date && data.end_date < data.start_date
+              ? 'Päättymispäivä ei voi olla ennen alkamispäivää.'
+              : data.status === 'active' && data.end_date && data.end_date < todayInput()
+                ? 'Päivä on jo ohittunut. Valitse tuleva päivä, jätä kenttä tyhjäksi tai valitse tilaksi Ei aktiivinen.' : '',
+        };
+      },
       onRender: attachFormLogic,
       onSubmit: async (data) => {
         // Mainospaikka on pakollinen. Heitetty virhe näytetään lomakkeella (UI.openForm),

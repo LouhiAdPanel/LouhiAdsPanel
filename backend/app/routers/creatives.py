@@ -36,6 +36,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 
+from ..dates import check_not_past
 from ..db import delete_row, get_conn, get_row, insert_row, pool, update_row
 from ..media import MAX_UPLOAD_BYTES, InvalidImage, delete_local_image, local_image_size, save_image
 from ..schemas import CreativeIn
@@ -204,6 +205,17 @@ def _save_placings(conn, creative_id: int, body: CreativeIn, ids: list[int]) -> 
     )
 
 
+def _check_dates(conn, body: CreativeIn, old=None):
+    """Näkyy alkaen- ja Näkyy asti -päivä eivät voi olla menneisyydessä (ks. dates.py).
+    Muokattaessa jo tallennettu päivä saa jäädä ennalleen. Virhe: 422."""
+    check_not_past(conn, body.start_time, old["start_time"] if old else None,
+                   "Näkyy alkaen -päivä ei voi olla menneisyydessä. Valitse tämä päivä, tuleva päivä "
+                   "tai jätä kenttä tyhjäksi.")
+    check_not_past(conn, body.end_time, old["end_time"] if old else None,
+                   "Näkyy asti -päivä ei voi olla menneisyydessä. Valitse tämä päivä, tuleva päivä "
+                   "tai jätä kenttä tyhjäksi.")
+
+
 def _get_or_404(conn, creative_id: int):
     """Hakee yhden mainoksen listamuodossa (nimineen ja sijoituksineen), tai nostaa 404:n."""
     row = conn.execute(LIST_SQL, {"id": creative_id, "advertiser_id": None,
@@ -275,6 +287,7 @@ def create_creative(body: CreativeIn, conn=Depends(get_conn)):
     Palauttaa mainoksen listamuodossa (201). Virheet: 422 virheellinen runko, ei
     mainospaikkoja, kampanja eri mainostajalla tai mainos on paikkaa suurempi.
     """
+    _check_dates(conn, body)
     data, placement_ids = _prepare(conn, body)
     row = insert_row(conn, "creatives", data)
     _save_placings(conn, row["id"], body, placement_ids)
@@ -295,6 +308,8 @@ def update_creative(creative_id: int, body: CreativeIn, conn=Depends(get_conn)):
     old = get_row(conn, "creatives", creative_id)
     if not old:
         raise HTTPException(404, "Mainosta ei löytynyt.")
+    # Tallennetut päivät sijoituksista (listamuoto): muuttamaton mennyt päivä saa jäädä
+    _check_dates(conn, body, _get_or_404(conn, creative_id))
     data, placement_ids = _prepare(conn, body)
     if old["advertiser_id"] != body.advertiser_id:
         conn.execute("UPDATE placings SET campaign_id = NULL WHERE creative_id = %s", [creative_id])
